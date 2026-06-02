@@ -1,14 +1,6 @@
 from tkinter import *
 from tkinter import ttk
 
-import sys
-import glob
-import serial
-
-import time
-
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from pymodbus.client import ModbusSerialClient
 import interface

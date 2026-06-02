@@ -1,43 +1,16 @@
 from tkinter import *
 from tkinter import ttk
 
-import sys
-import glob
-import serial
-
 import time
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from pymodbus.client import ModbusSerialClient
+from modbusutil import ModbusConnector
+
 
 MAXFLOW = 5.0
 INITFLOW = 1.0
-
-def serial_ports():
-
-    # Utility function to list available serial ports
-    # code modified from:
-    # https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
-
-    if sys.platform.startswith('win'):
-        ports = ['COM%s' % (i + 1) for i in range(256)]
-    else:
-        raise EnvironmentError('Unsupported Platform')
-
-    result = []
-    for port in ports:
-        try:
-            s = serial.Serial(port)
-            s.close()
-            result.append(port)
-
-        except (OSError, serial.SerialException):
-            pass
-        
-    return result
-
 
 # Class for control page functionality
 
@@ -85,14 +58,18 @@ class ControlPage(ttk.Frame):
         valid = (P.replace('.','',1).isdigit() or P=="")
         return valid
 
+
+
 # Class for settings page
 
 class SettingsPage(ttk.Frame):
 
+    paritytab = {"Even" : "E", "Odd" : "O", "None" : "N"}
+
     def __init__(self,parent):
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
 
-        self.ports = serial_ports()
+        self.ports = ModbusConnector.get_serial_ports()
 
         self.port = StringVar()
         self.baudrate=IntVar()
@@ -127,13 +104,11 @@ class SettingsPage(ttk.Frame):
         self.connect_button = ttk.Button(self, text="CONNECT", command=self.connect)
         self.connect_button.grid(column=2,row=6,padx = 12, pady = 12)
 
-        self.connected = False
-        self.modbusc = None
+        self.modbusc = ModbusConnector()
 
         self.x_data = []
         self.y_data = []
         
-
         self.fig = Figure(figsize=(4,3))
         self.ax = self.fig.add_subplot(111)
         self.line,=self.ax.plot([],[],'k-',label="Live Data")
@@ -150,7 +125,7 @@ class SettingsPage(ttk.Frame):
 
     def update_plot(self):
         self.x_data.append(time.time() % 50)
-        self.y_data.append(self.get_value())
+        self.y_data.append(self.modbusc.get_float(28672))
 
         if len(self.x_data) > 50:
             self.x_data.pop(0)
@@ -162,40 +137,13 @@ class SettingsPage(ttk.Frame):
 
         self.after(500,self.update_plot)
 
-    def get_value(self):
-
-        if self.modbusc.is_socket_open():
-            pass
-        else:
-            self.modbusc.connect()
-
-        resp = self.modbusc.read_holding_registers(28672,count=2)
-        retval= ModbusSerialClient.convert_from_registers(resp.registers,ModbusSerialClient.DATATYPE.FLOAT32,word_order="little")
-
-        return retval
-
     def connect(self):
 
-        paritytab = {"Even" : "E", "Odd" : "O", "None" : "N"}
-
-        print(self.port.get(),self.baudrate.get(),self.databits.get(),paritytab[self.parity.get()],self.stopbit.get())
-
-        self.modbusc = ModbusSerialClient(port = self.port.get(), baudrate = self.baudrate.get(),
-                                          bytesize=self.databits.get(), parity=paritytab[self.parity.get()],stopbits=self.stopbit.get())
-
-        print("CONNECTING")
-
-        print(self.modbusc.connect())
-        print(self.modbusc.is_socket_open())
-
-        resp = self.modbusc.read_holding_registers(28672,count=2)
-
-
-        fl=ModbusSerialClient.convert_from_registers(resp.registers,ModbusSerialClient.DATATYPE.FLOAT32,word_order="little")
-        print(fl)
-
-        self.modbusc.close()
+        self.modbusc.set_params(port = self.port.get(),
+                                baudrate = self.baudrate.get(),
+                                databits = self.databits.get(),
+                                parity = self.paritytab[self.parity.get()],
+                                stopbits = self.stopbit.get())
+        self.modbusc.connect()
 
         self.update_plot()
-
-        return
