@@ -12,10 +12,14 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from pymodbus.client import ModbusSerialClient
 
+MAXFLOW = 5.0
+INITFLOW = 1.0
+
 def serial_ports():
 
-    # lists serial port names
-    # code from here: https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
+    # Utility function to list available serial ports
+    # code modified from:
+    # https://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
 
     if sys.platform.startswith('win'):
         ports = ['COM%s' % (i + 1) for i in range(256)]
@@ -34,7 +38,12 @@ def serial_ports():
         
     return result
 
+
+# Class for control page functionality
+
 class ControlPage(ttk.Frame):
+
+    
 
     def __init__(self,parent):
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
@@ -76,6 +85,7 @@ class ControlPage(ttk.Frame):
         valid = (P.replace('.','',1).isdigit() or P=="")
         return valid
 
+# Class for settings page
 
 class SettingsPage(ttk.Frame):
 
@@ -189,43 +199,3 @@ class SettingsPage(ttk.Frame):
         self.update_plot()
 
         return
-
-        
-
-MAXFLOW = 5.0
-INITFLOW = 1.0
-
-root = Tk()
-root.title("Vacuum Tube Interface")
-
-s=ttk.Style()
-print(s.theme_names())
-s.theme_use("alt")
-
-mainframe = ttk.Frame(root)
-mainframe.grid(column=0, row=0, sticky = (N,W,E,S))
-
-tabs = ttk.Notebook(mainframe)
-
-controls = ControlPage(tabs)
-tabs.add(controls,text="Controls")
-
-gaspanel = ttk.Frame(tabs)
-tabs.add(gaspanel,text="Gas Panel")
-
-plotting = ttk.Frame(tabs)
-tabs.add(plotting,text="Plotting")
-
-settings = SettingsPage(tabs)
-tabs.add(settings,text="Settings")
-
-
-root.columnconfigure(0,weight=1)
-root.rowconfigure(0,weight=1)
-
-mainframe.columnconfigure(3,weight=1)
-
-for child in mainframe.winfo_children():
-    child.grid_configure(padx=5, pady=5)
-
-root.mainloop()
