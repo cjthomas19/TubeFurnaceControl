@@ -19,6 +19,8 @@ class ModbusConnector:
 
         if sys.platform.startswith('win'):
             ports = ['COM%s' % (i + 1) for i in range(256)]
+        elif sys.platform.startswith('linux') or sys.platfor.startswith('cygwin'):
+            ports = glob.glob('/dev/tty[A-Za-z]*')
         else:
             raise EnvironmentError('Unsupported Platform')
 
