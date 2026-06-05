@@ -65,7 +65,7 @@ class ModbusConnector:
 
         self.connected = False
 
-    def set_params(self,port: str, baudrate: int = 37800, parity: str = "O",
+    def set_params(self,port: str, baudrate: int = 38400, parity: str = "O",
                  databits: int = 8, stopbits: int = 1):
 
         self.port = port
