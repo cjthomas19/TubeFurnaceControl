@@ -16,8 +16,6 @@ INITFLOW = 1.0
 
 class ControlPage(ttk.Frame):
 
-    
-
     def __init__(self,parent):
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
 
@@ -35,9 +33,13 @@ class ControlPage(ttk.Frame):
         ttk.Button(self, text="Forming Gas", command=lambda: self.setGas("Forming Gas")).grid(column=1,row=3,sticky=W)
         ttk.Label(self,anchor="center",textvariable=self.activeGas).grid(column=2,row=2,sticky=(W,E))
 
-        ttk.Entry(self,textvariable=self.flowSet,width=15,validate='all',validatecommand=(self.vcmd,'%P')).grid(column=3,row=2,sticky=(W,E))
-        ttk.Scale(self,variable=self.flowSet,orient=VERTICAL,from_=MAXFLOW,to=0.0).grid(column=4,row=1,rowspan=3,sticky=(W,E))
+        ttk.Entry(self,textvariable=self.flowSet,width=3,validate='all',validatecommand=(self.vcmd,'%P')).grid(column=3,row=2,sticky=(W,E))
+        self.flowscale = ttk.Scale(self,variable=self.flowSet,orient=VERTICAL,from_=MAXFLOW,to=0.0)
+        self.flowscale['command'] = lambda val : self.flowSet.set(f'{float(val):.02f}')
+        self.flowscale.grid(column=4,row=1,rowspan=3,sticky=(W,E))
 
+        
+        
         self.canvas = Canvas(self,width=700,height=400)
         self.canvas.grid(column=1,row=4,columnspan=4)
 
@@ -113,6 +115,7 @@ class SettingsPage(ttk.Frame):
         self.ax = self.fig.add_subplot(111)
         self.line,=self.ax.plot([],[],'k-',label="Live Data")
         self.ax.set_ylim(60,90)
+        self.fig.set_facecolor("#d9d9d9")
 
         self.canvas = FigureCanvasTkAgg(self.fig,master=self)
         self.canvas.get_tk_widget().grid(column=3,row=1,rowspan=6,padx=12,pady=12)
@@ -147,3 +150,10 @@ class SettingsPage(ttk.Frame):
         self.modbusc.connect()
 
         self.update_plot()
+
+# Class for plotting page
+
+class PlotPage(ttk.Frame):
+
+    def __init__(self):
+        ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
