@@ -186,6 +186,14 @@ class PlotPage(ttk.Frame):
         # First 3 (the temperature channels) start ticked, flow rates start unticked.
         self.enabled = {name: BooleanVar(value=(i < 3))
                         for i, name in enumerate(self.REGISTERS)}
+        
+        # self.enabled = {
+    # 'Temp1': BooleanVar(value=True),   # Because index 0 is < 3
+    # 'Temp2': BooleanVar(value=True),   # Because index 1 is < 3
+    # 'Temp3': BooleanVar(value=True),   # Because index 2 is < 3
+    # 'Flow1': BooleanVar(value=False),  # Because index 3 is NOT < 3
+    # 'Flow2': BooleanVar(value=False)   # Because index 4 is NOT < 3
+# } "
 
         # Left panel box with border and title "Variables".
         left = ttk.LabelFrame(self, text="Variables", padding=(8,4))
@@ -250,7 +258,7 @@ class PlotPage(ttk.Frame):
         # Dashed grid lines at 50% transparency.
         self.ax.grid(True, linestyle="--", alpha=0.5)
         # Prevent axis labels from being cut off at the edges.      
-        self.fig.tight_layout()
+        self.fig.subplots_adjust(left=0.15)
 
         # Create one empty line per register, saved so _poll can update their data later.
         self.lines = {}
@@ -331,7 +339,7 @@ class PlotPage(ttk.Frame):
                 # Read the current value from the furnace at this register address.
                 val = self.settings_page.modbusc.get_float(address)
                 self.y_data[name].append(val)
-                # Update the live label, formatted to 2 decimal places.
+                # Update the live label, formatted to 2 decimal places (will update if equipment accuracy is better).
                 self.live_labels[name].config(text=f"{val:.2f}")
             except Exception:
                 # If read failed, repeat the last known value to keep list lengths equal.
@@ -339,7 +347,7 @@ class PlotPage(ttk.Frame):
                 self.y_data[name].append(prev)
                 self.live_labels[name].config(text="ERR")
 
-            # Drop oldest reading once we exceed 100 points to keep a rolling window.
+            # Drop oldest reading once we exceed 100 points to keep a rolling window--should we keep a history log?
             # PLACEHOLDER: 100 points = ~50s at 500ms poll rate.
             if len(self.y_data[name]) > 100:  
                 self.y_data[name].pop(0)
@@ -357,3 +365,4 @@ class PlotPage(ttk.Frame):
         # Schedule next poll in 500ms, keeps the loop running; matches 
         # SettingsPage poll rate, could change.
         self.after(500, self._poll)
+
