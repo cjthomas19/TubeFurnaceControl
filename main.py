@@ -24,10 +24,11 @@ tabs.add(controls,text="Controls")
 gaspanel = ttk.Frame(tabs)
 tabs.add(gaspanel,text="Gas Panel")
 
-plotting = ttk.Frame(tabs)
+settings = interface.SettingsPage(tabs)
+
+plotting = interface.PlotPage(tabs, settings_page=settings)
 tabs.add(plotting,text="Plotting")
 
-settings = interface.SettingsPage(tabs)
 tabs.add(settings,text="Settings")
 
 
