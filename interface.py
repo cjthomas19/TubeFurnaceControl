@@ -7,6 +7,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from modbusutil import ModbusConnector
+from hardware import TubeInterface
 
 
 MAXFLOW = 5.0
@@ -68,13 +69,15 @@ class SettingsPage(ttk.Frame):
 
     paritytab = {"Even" : "E", "Odd" : "O", "None" : "N"}
 
-    def __init__(self,parent):
+    def __init__(self,parent,tube_interface):
+
+        # Run parent frame setup before adding our own content
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
 
         self.ports = ModbusConnector.get_serial_ports()
 
         self.port = StringVar()
-        self.baudrate=IntVar()
+        self.baudrate = IntVar()
         self.databits = IntVar(value=8)
         self.parity = StringVar()
         self.stopbit = IntVar()
@@ -154,28 +157,19 @@ class SettingsPage(ttk.Frame):
 # Class for plotting page
 
 class PlotPage(ttk.Frame):
-    
-    # PLACEHOLDERS: register addresses incremented by 2 from 28672 (the one known 
-    # address from SettingsPage). Will need to verify against actual register map.
-    # --> Dictionary of modbus register addresses to read from the furnace.
-    REGISTERS = {
-        "Load Temp (°C)":   28672,
-        "Center Temp (°C)": 28674,
-        "Source Temp (°C)": 28676,
-        "N2 Flow (SLPM)":   28680,
-        "O2 Flow (SLPM)":   28682,
-        "H2 Flow (SLPM)":   28684,
-    }
 
-    def __init__(self, parent, settings_page=None):
-        # Run standard frame setup before adding our own content.
+    def __init__(self, parent,tube_interface):
+        # Run parent frame setup before adding our own content.
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
 
-        # Save reference to SettingsPage so we can borrow its Modbus connection.
-        self.settings_page = settings_page
+        # Save reference to tube interface for later use
+        self.tube_interface = tube_interface
+
+        # Get values to plot from hardware list of registers
+        self._REGISTERS = dict(zip(self.tube_interface.get_register_names(),self.tube_interface.get_register_keys()))
         
         # Each register gets empty list to store its readings over time.
-        self.y_data = {name: [] for name in self.REGISTERS}
+        self.y_data = {name: [] for name in self._REGISTERS}
 
         # Track whether we are currently logging (True) or not (False).        
         self._logging = False
@@ -185,15 +179,8 @@ class PlotPage(ttk.Frame):
         # One True/False variable per register, linked to each checkbox.
         # First 3 (the temperature channels) start ticked, flow rates start unticked.
         self.enabled = {name: BooleanVar(value=(i < 3))
-                        for i, name in enumerate(self.REGISTERS)}
+                        for i, name in enumerate(self._REGISTERS)}
         
-        # self.enabled = {
-    # 'Temp1': BooleanVar(value=True),   # Because index 0 is < 3
-    # 'Temp2': BooleanVar(value=True),   # Because index 1 is < 3
-    # 'Temp3': BooleanVar(value=True),   # Because index 2 is < 3
-    # 'Flow1': BooleanVar(value=False),  # Because index 3 is NOT < 3
-    # 'Flow2': BooleanVar(value=False)   # Because index 4 is NOT < 3
-# } "
 
         # Left panel box with border and title "Variables".
         left = ttk.LabelFrame(self, text="Variables", padding=(8,4))
@@ -205,46 +192,46 @@ class PlotPage(ttk.Frame):
 
         # Create one checkbox per register, each linked to its True/False variable.
         # row=i+1 places each checkbox one row below the previous one.
-        for i, name in enumerate(self.REGISTERS):
+        for i, name in enumerate(self._REGISTERS):
             ttk.Checkbutton(left, text=name, variable=self.enabled[name],
                             command=self._refresh_lines).grid(column=1, row=i+1, sticky=W, pady=2)
 
         # Dividing line between checkboxes and live values.
         # Row offsets are computed from len(self.REGISTERS) so adding/removing
         # registers automatically shifts everything below without manual renumbering.
-        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self.REGISTERS)+1, sticky=(W,E), pady=8)
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self._REGISTERS)+1, sticky=(W,E), pady=8)
 
         # Header label above the live value readouts.
-        ttk.Label(left, text="Live values:").grid(column=1, row=len(self.REGISTERS)+2, sticky=W, pady=(0,4))
+        ttk.Label(left, text="Live values:").grid(column=1, row=len(self._REGISTERS)+2, sticky=W, pady=(0,4))
 
         # Create two labels per register: name on left, current value on right.
         # self.live_labels saves the value labels so _poll can update them later.
         self.live_labels = {}
-        for i, name in enumerate(self.REGISTERS):
-            ttk.Label(left, text=name+":").grid(column=1, row=len(self.REGISTERS)+3+i, sticky=W, pady=1)
+        for i, name in enumerate(self._REGISTERS):
+            ttk.Label(left, text=name+":").grid(column=1, row=len(self._REGISTERS)+3+i, sticky=W, pady=1)
             lbl = ttk.Label(left, text="--", width=8, anchor="e")
-            lbl.grid(column=2, row=len(self.REGISTERS)+3+i, sticky=E, pady=1)
+            lbl.grid(column=2, row=len(self._REGISTERS)+3+i, sticky=E, pady=1)
             self.live_labels[name] = lbl
 
         # Dividing line between live values and buttons.
-        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self.REGISTERS)*2+4, columnspan=2, sticky=(W,E), pady=8)
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self._REGISTERS)*2+4, columnspan=2, sticky=(W,E), pady=8)
 
         # Start button saved to self so it can be greyed out when logging starts.
         self.start_btn = ttk.Button(left, text="Start Logging", command=self._start)
-        self.start_btn.grid(column=1, row=len(self.REGISTERS)*2+5, columnspan=2, sticky=(W,E), pady=2)
+        self.start_btn.grid(column=1, row=len(self._REGISTERS)*2+5, columnspan=2, sticky=(W,E), pady=2)
 
         # Stop button starts greyed out, only enabled once logging has started.
         self.stop_btn = ttk.Button(left, text="Stop Logging", command=self._stop, state=DISABLED)
-        self.stop_btn.grid(column=1, row=len(self.REGISTERS)*2+6, columnspan=2, sticky=(W,E), pady=2)
+        self.stop_btn.grid(column=1, row=len(self._REGISTERS)*2+6, columnspan=2, sticky=(W,E), pady=2)
 
         # Clear button always active, not saved to self as it never needs to be greyed out.
         ttk.Button(left, text="Clear Data", command=self._clear).grid(
-            column=1, row=len(self.REGISTERS)*2+7, columnspan=2, sticky=(W,E), pady=2)
+            column=1, row=len(self._REGISTERS)*2+7, columnspan=2, sticky=(W,E), pady=2)
 
         # Status text at the bottom of the left panel, updates automatically when set() is called.
         self.status_var = StringVar(value="Not logging")
         ttk.Label(left, textvariable=self.status_var).grid(
-            column=1, row=len(self.REGISTERS)*2+8, columnspan=2, sticky=W, pady=(8,0))
+            column=1, row=len(self._REGISTERS)*2+8, columnspan=2, sticky=W, pady=(8,0))
 
         # Create the matplotlib figure, grey background matches the rest of the app.
         self.fig = Figure(figsize=(7,5))
@@ -262,7 +249,7 @@ class PlotPage(ttk.Frame):
 
         # Create one empty line per register, saved so _poll can update their data later.
         self.lines = {}
-        for name in self.REGISTERS:
+        for name in self._REGISTERS:
             line, = self.ax.plot([], [], label=name, linewidth=1.5)
             self.lines[name] = line
 
@@ -286,7 +273,7 @@ class PlotPage(ttk.Frame):
     def _start(self):
         # Refuse to start if not connected to the furnace 
         # (also, widget currently stops responding if this occurs).
-        if self.settings_page is None or not self.settings_page.modbusc.connected:
+        if self.tube_interface is None or not self.tube_interface.is_connected():
             self.status_var.set("Not connected — go to Settings first")
             return
         self._logging = True
@@ -326,7 +313,7 @@ class PlotPage(ttk.Frame):
         if not self._logging:
             return
         # Exit if connection was lost.
-        if self.settings_page is None or not self.settings_page.modbusc.connected:
+        if self.tube_interface is None or not self.tube_interface.is_connected():
             self._stop()
             self.status_var.set("Lost connection")
             return
@@ -334,18 +321,13 @@ class PlotPage(ttk.Frame):
         # Calculate seconds elapsed since logging started.
         elapsed = time.time() - self._start_time
 
-        for name, address in self.REGISTERS.items():
-            try:
-                # Read the current value from the furnace at this register address.
-                val = self.settings_page.modbusc.get_float(address)
-                self.y_data[name].append(val)
-                # Update the live label, formatted to 2 decimal places (will update if equipment accuracy is better).
-                self.live_labels[name].config(text=f"{val:.2f}")
-            except Exception:
-                # If read failed, repeat the last known value to keep list lengths equal.
-                prev = self.y_data[name][-1] if self.y_data[name] else 0
-                self.y_data[name].append(prev)
-                self.live_labels[name].config(text="ERR")
+        for name, key in self._REGISTERS.items():
+            
+            val = self.tube_interface.get_value(key)
+            self.y_data[name].append(val)
+            
+            # Update the live label, formatted to 2 decimal places (will update if equipment accuracy is better).
+            self.live_labels[name].config(text=f"{val:.2f}")
 
             # Drop oldest reading once we exceed 100 points to keep a rolling window--should we keep a history log?
             # PLACEHOLDER: 100 points = ~50s at 500ms poll rate.

@@ -39,7 +39,7 @@ class ModbusConnector:
 
     # Constructor
     
-    def __init__(self, port: str = "", baudrate: int = 37800, parity: str = "O",
+    def __init__(self, port: str = "", baudrate: int = 38400, parity: str = "O",
                  databits: int = 8, stopbits: int = 1):
 
         self.port = port

@@ -3,7 +3,12 @@ from tkinter import ttk
 
 
 import interface
+from modbusutil import ModbusConnector
+from hardware import TubeInterface
 
+# Initialize modbus connection and hardware handler with default parameters
+modbusc = ModbusConnector()
+tube_interface = TubeInterface(modbusc)
 
 # Set up TK window and main frame
 root = Tk()
@@ -18,19 +23,18 @@ mainframe.grid(column=0, row=0, sticky = (N,W,E,S))
 # Use a TK notebook to group different interface windows
 tabs = ttk.Notebook(mainframe)
 
+# Initialize the interface tabs, which extend ttk.Frame
 controls = interface.ControlPage(tabs)
 tabs.add(controls,text="Controls")
 
 gaspanel = ttk.Frame(tabs)
 tabs.add(gaspanel,text="Gas Panel")
 
-settings = interface.SettingsPage(tabs)
-
-plotting = interface.PlotPage(tabs, settings_page=settings)
+plotting = interface.PlotPage(tabs, tube_interface)
 tabs.add(plotting,text="Plotting")
 
+settings = interface.SettingsPage(tabs, tube_interface)
 tabs.add(settings,text="Settings")
-
 
 # Configure columns, rows, and set default padding for all widgets
 root.columnconfigure(0,weight=1)
