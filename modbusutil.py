@@ -7,6 +7,9 @@ from pymodbus.transport import CommParams
 
 
 # Class containing utility methods and state information for modbus PLC connection
+# TO-DO:
+# * Implement error handling
+# * Add "get" methods for additional datatypes (int, bool, potentially str)
 
 class ModbusConnector:
 
@@ -37,7 +40,7 @@ class ModbusConnector:
         return result
 
 
-    # Constructor
+    # Constructor - default values based on AutomationDirect Click PLC defaults
     
     def __init__(self, port: str = "", baudrate: int = 38400, parity: str = "O",
                  databits: int = 8, stopbits: int = 1):
@@ -47,44 +50,55 @@ class ModbusConnector:
         self.parity = parity
         self.databits = databits
         self.stopbits = stopbits
-
+        
+        # Store connection state
         self.connected = False
 
+        # Use pymodbus base level class for communication
         self.modbusc = ModbusSerialClient(port = self.port, baudrate = self.baudrate, parity = self.parity, bytesize = self.databits, stopbits = self.stopbits)
 
 
+    # Initialize connection
     def connect(self):
 
         self.modbusc.connect()
-
         self.connected = True
-
+        
+    # Close connection
     def disconnect(self):
 
         self.modbusc.close()
-
         self.connected = False
 
+    # Change parameters by resetting connection
     def set_params(self,port: str, baudrate: int = 38400, parity: str = "O",
                  databits: int = 8, stopbits: int = 1):
 
+        # Use method arguments to reset connection properties
         self.port = port
         self.baudrate = baudrate
         self.parity = parity
         self.databits = databits
         self.stopbits = stopbits
 
+        # Disconnect before modifying connections
         if self.modbusc.is_socket_open():
             self.disconnect()
 
+        # Create new modbus serial client object
         self.modbusc = ModbusSerialClient(port = self.port, baudrate = self.baudrate, parity = self.parity, bytesize = self.databits, stopbits = self.stopbits)
 
+        # Re-connect only if we were already connected
         if self.connected:
             self.connect()
 
+    # Read a floating point number from the given register
     def get_float(self, register):
 
+        # 32-bit floats are stored in 2 consecutive registers
         resp = self.modbusc.read_holding_registers(register,count=2)
+        
+        # Convert to a 32-bit float datatype
         val = ModbusSerialClient.convert_from_registers(resp.registers,ModbusSerialClient.DATATYPE.FLOAT32,word_order="little")
 
         return val

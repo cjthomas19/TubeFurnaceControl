@@ -27,7 +27,7 @@ tabs = ttk.Notebook(mainframe)
 controls = interface.ControlPage(tabs)
 tabs.add(controls,text="Controls")
 
-gaspanel = ttk.Frame(tabs)
+gaspanel = interface.GasPanel(tabs, tube_interface)
 tabs.add(gaspanel,text="Gas Panel")
 
 plotting = interface.PlotPage(tabs, tube_interface)

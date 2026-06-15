@@ -1,7 +1,10 @@
 from tkinter import *
 from tkinter import ttk
 
+from PIL import Image, ImageTk
+
 import time
+import math
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -41,7 +44,7 @@ class ControlPage(ttk.Frame):
 
         
         
-        self.canvas = Canvas(self,width=700,height=400)
+        self.canvas = Canvas(self,width=700,height=400,background="#d9d9d9",highlightthickness=0)
         self.canvas.grid(column=1,row=4,columnspan=4)
 
         self.tube_img = PhotoImage(file='tubedwg.png').subsample(5,5)
@@ -243,7 +246,7 @@ class PlotPage(ttk.Frame):
         self.ax.set_ylabel("Value")
         self.ax.set_title("Live Sensor Data")
         # Dashed grid lines at 50% transparency.
-        self.ax.grid(True, linestyle="--", alpha=0.5)
+        #self.ax.grid(True, linestyle="--", alpha=0.5)
         # Prevent axis labels from being cut off at the edges.      
         self.fig.subplots_adjust(left=0.15)
 
@@ -348,3 +351,76 @@ class PlotPage(ttk.Frame):
         # SettingsPage poll rate, could change.
         self.after(500, self._poll)
 
+
+# Class to control gas panel items - valve states, selected gas, and MFC flows
+
+class GasPanel(ttk.Frame):
+
+    def add_valve(self,x,y,size,third_port):
+        self.canvas.create_polygon(x,y,x+size/2,y+size/2*math.sqrt(3),x-size/2,y+size/2*math.sqrt(3),fill='white',outline='black')
+        self.canvas.create_polygon(x,y,x+size/2,y-size/2*math.sqrt(3),x-size/2,y-size/2*math.sqrt(3),fill='white',outline='black')
+
+        if third_port==1:
+            self.canvas.create_polygon(x,y,x+size/2*math.sqrt(3),y+size/2,x+size/2*math.sqrt(3),y-size/2,fill='white',outline='black')
+        elif third_port==-1:
+            self.canvas.create_polygon(x,y,x-size/2*math.sqrt(3),y+size/2,x-size/2*math.sqrt(3),y-size/2,fill='white',outline='black')
+
+    def add_pipe(self,x1,y1,x2,y2):
+        self.canvas.create_line(x1,y1,x2,y2)
+
+    def add_pump(self, x, y, size):
+        self.canvas.create_oval(x-size/2,y-size/2,x+size/2,y+size/2,fill='white',outline='black')
+        self.canvas.create_line(x-size/2*math.cos(math.pi/4),y+size/2*math.sin(math.pi/4),x+size/2,y)
+        self.canvas.create_line(x-size/2*math.cos(math.pi/4),y-size/2*math.sin(math.pi/4),x+size/2,y)
+        
+
+    def __init__(self, parent,tube_interface):
+        # Run parent frame setup before adding our own content.
+        ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
+
+        # Store reference to tube interface for later use
+        self.tube_interface = tube_interface
+
+        # Rescale tube image using HAMMING filter (5) for sharper image
+        self.tube_img = ImageTk.PhotoImage(Image.open("tubedwg.png").resize((400,200),5))
+
+        # Prepare canvas
+        self.canvas = Canvas(self,width=800,height=600,background="#d9d9d9",highlightthickness=0)
+        self.canvas.grid(column=1,row=4,columnspan=4)
+
+        # Draw P&ID pipes and valves
+        self.add_pipe(100,50, 100,100)
+    
+        self.add_pipe(100,100,100,200)
+        self.add_pipe(100,200,150,200)
+        self.add_pipe(150,200,150,50)
+        
+        self.add_pipe(100,200,100,300)
+        self.add_pipe(100,300,50, 300)
+        self.add_pipe(50, 300,50, 50)
+
+        self.add_pipe(100,300,100,400)
+        self.add_pipe(100,400,400,400)
+
+        self.add_pipe(400,400,750,400)
+        
+        self.add_valve(100,100,20,0)
+        self.add_valve(100,200,20,1)
+        self.add_valve(100,300,20,-1)
+
+        self.add_pump(725,400,30)
+
+        # Add labels
+        self.canvas.create_text(100,40,text="N2")
+        self.canvas.create_text(150,40,text="O2")
+        self.canvas.create_text(50,40,text="N2/H2")
+
+        # MFC & PT Data box templates
+        self.canvas.create_rectangle(125,380,200,420,fill='white',outline='black')
+        self.canvas.create_rectangle(600,380,675,420,fill='white',outline='black')
+        
+        
+        self.canvas.create_image(400,430,image=self.tube_img,anchor='center')
+
+        
+        
