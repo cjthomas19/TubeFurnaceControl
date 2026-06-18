@@ -372,6 +372,10 @@ class GasPanel(ttk.Frame):
         self.canvas.create_oval(x-size/2,y-size/2,x+size/2,y+size/2,fill='white',outline='black')
         self.canvas.create_line(x-size/2*math.cos(math.pi/4),y+size/2*math.sin(math.pi/4),x+size/2,y)
         self.canvas.create_line(x-size/2*math.cos(math.pi/4),y-size/2*math.sin(math.pi/4),x+size/2,y)
+
+    def _validateFlow(self,P):
+        valid = (P.replace('.','',1).isdigit() or P=="")
+        return valid
         
 
     def __init__(self, parent,tube_interface):
@@ -386,7 +390,7 @@ class GasPanel(ttk.Frame):
 
         # Prepare canvas
         self.canvas = Canvas(self,width=800,height=600,background="#d9d9d9",highlightthickness=0)
-        self.canvas.grid(column=1,row=4,columnspan=4)
+        self.canvas.grid(column=1,row=1,columnspan=4)
 
         # Draw P&ID pipes and valves
         self.add_pipe(100,50, 100,100)
@@ -422,5 +426,37 @@ class GasPanel(ttk.Frame):
         
         self.canvas.create_image(400,430,image=self.tube_img,anchor='center')
 
+        ### Gas Control layout
+        gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=150,height=300)
+        gpanel.grid_propagate(0)
+
+        # Register validation function with tkinter frame
+        self.flowSet = DoubleVar(value=2.5)
+        self.vcmd = parent.register(self._validateFlow)
+
+        self.tempSet = DoubleVar(value=150)
+
+        # Header label above the controls.
+        ttk.Label(gpanel, text="Gas Selection:").grid(column=1, row=0, sticky=W, pady=(0,6))
+        ttk.Button(gpanel, text="Nitrogen", command=lambda: self.tube_interface.set_gas("Nitrogen")).grid(column=1,row=1,sticky=N,columnspan=2)
+        ttk.Button(gpanel, text="Oxygen", command=lambda: self.tube_interface.set_gas("Oxygen")).grid(column=1,row=2,sticky=N,columnspan=2)
+        ttk.Button(gpanel, text="Forming Gas", command=lambda: self.tube_interface.set_gas("Forming Gas")).grid(column=1,row=3,sticky=N,columnspan=2)
+        ttk.Label(gpanel, text="MFC Setpoint:").grid(column=1, row=4, sticky=W, pady=(20,0))
+
+        ttk.Entry(gpanel,textvariable=self.flowSet,validate='all',width=10,validatecommand=(self.vcmd,'%P'),justify='center').grid(column=1,row=5)
+        self.flowscale = ttk.Scale(gpanel,variable=self.flowSet,orient=VERTICAL,from_=MAXFLOW,to=0.0,length=50)
+        self.flowscale['command'] = lambda val : self.flowSet.set(f'{float(val):.02f}')
+        self.flowscale.grid(column=2,row=5,sticky=(W,E),padx=10)
+
+        self.canvas.create_window(300,175,window=gpanel)
+
+        ### Temp Control Layout
+        tpanel = ttk.LabelFrame(self,text="Temp. Control",padding=(8,4),width=150,height=300)
+        tpanel.grid_propagate(0)
+
+        ttk.Label(tpanel, text = "Setpoint").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
+        ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=10,justify='center').grid(column=1,row=1)
+
+        self.canvas.create_window(450,175,window=tpanel)
         
         

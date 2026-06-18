@@ -24,11 +24,11 @@ mainframe.grid(column=0, row=0, sticky = (N,W,E,S))
 tabs = ttk.Notebook(mainframe)
 
 # Initialize the interface tabs, which extend ttk.Frame
-controls = interface.ControlPage(tabs)
-tabs.add(controls,text="Controls")
-
 gaspanel = interface.GasPanel(tabs, tube_interface)
 tabs.add(gaspanel,text="Gas Panel")
+
+controls = interface.ControlPage(tabs)
+tabs.add(controls,text="Controls")
 
 plotting = interface.PlotPage(tabs, tube_interface)
 tabs.add(plotting,text="Plotting")
@@ -45,5 +45,7 @@ mainframe.columnconfigure(3,weight=1)
 for child in mainframe.winfo_children():
     child.grid_configure(padx=5, pady=5)
 
+
 # Start TK main loop
 root.mainloop()
+
