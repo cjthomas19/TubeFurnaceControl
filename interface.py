@@ -16,56 +16,6 @@ from hardware import TubeInterface
 MAXFLOW = 5.0
 INITFLOW = 1.0
 
-# Class for control page functionality
-
-class ControlPage(ttk.Frame):
-
-    def __init__(self,parent):
-        ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
-
-        self.activeGas = StringVar()
-        self.flowSet = DoubleVar(value=2.5)
-        self.activeGas.set("Nitrogen")
-
-        self.vcmd = parent.register(self.validateFlow)
-
-
-        ttk.Label(self,anchor="center",text="Active Gas:").grid(column=2,row=1,sticky=(W,E))
-
-        ttk.Button(self, text="Nitrogen", command=lambda: self.setGas("Nitrogen")).grid(column=1,row=1,sticky=W)
-        ttk.Button(self, text="Oxygen", command=lambda: self.setGas("Oxygen")).grid(column=1,row=2,sticky=W)
-        ttk.Button(self, text="Forming Gas", command=lambda: self.setGas("Forming Gas")).grid(column=1,row=3,sticky=W)
-        ttk.Label(self,anchor="center",textvariable=self.activeGas).grid(column=2,row=2,sticky=(W,E))
-
-        ttk.Entry(self,textvariable=self.flowSet,width=3,validate='all',validatecommand=(self.vcmd,'%P')).grid(column=3,row=2,sticky=(W,E))
-        self.flowscale = ttk.Scale(self,variable=self.flowSet,orient=VERTICAL,from_=MAXFLOW,to=0.0)
-        self.flowscale['command'] = lambda val : self.flowSet.set(f'{float(val):.02f}')
-        self.flowscale.grid(column=4,row=1,rowspan=3,sticky=(W,E))
-
-        
-        
-        self.canvas = Canvas(self,width=700,height=400,background="#d9d9d9",highlightthickness=0)
-        self.canvas.grid(column=1,row=4,columnspan=4)
-
-        self.tube_img = PhotoImage(file='tubedwg.png').subsample(5,5)
-
-        self.canvas.create_image(350,200,image=self.tube_img,anchor='center')
-        self.canvas.create_text(237,290,text='300 C')
-        self.canvas.create_text(348,290,text='300 C')
-        self.canvas.create_text(459,290,text='300 C')
-
-    def setGas(self,toGas):
-        try:
-            self.activeGas.set(toGas)
-        except ValueError:
-            pass
-
-    def validateFlow(self,P):
-        valid = (P.replace('.','',1).isdigit() or P=="")
-        return valid
-
-
-
 # Class for settings page
 
 class SettingsPage(ttk.Frame):
