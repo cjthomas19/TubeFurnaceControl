@@ -87,64 +87,44 @@ class SettingsPage(ttk.Frame):
         self.flowcontrol=StringVar()
         self.terminationchar=StringVar()
 
-        ttk.Label(self,text="COM Port: ").grid(column=1,row=1,sticky=E)
-        ttk.Label(self,text="Baud Rate: ").grid(column=1,row=2,sticky=E)
-        ttk.Label(self,text="Data Bits: ").grid(column=1,row=3,sticky=E)
-        ttk.Label(self,text="Parity: ").grid(column=1,row=4,sticky=E)
-        ttk.Label(self,text="Stop Bit: ").grid(column=1,row=5,sticky=E)
+        ## Communications Settings
+        companel = ttk.LabelFrame(self,text="Communications",width=200,height=300)
+        companel.grid(row=0,column=0)
+        companel.grid_propagate(0)
 
+        ttk.Label(companel,text="COM Port: ").grid(column=1,row=1,sticky=E,pady=(10,0))
+        ttk.Label(companel,text="Baud Rate: ").grid(column=1,row=2,sticky=E)
+        ttk.Label(companel,text="Data Bits: ").grid(column=1,row=3,sticky=E)
+        ttk.Label(companel,text="Parity: ").grid(column=1,row=4,sticky=E)
+        ttk.Label(companel,text="Stop Bit: ").grid(column=1,row=5,sticky=E)
 
-        self.psel = ttk.OptionMenu(self, self.port,"",*self.ports)
-        self.psel.grid(column=2,row=1,sticky=W)
+        
+        self.psel = ttk.OptionMenu(companel, self.port,"",*self.ports)
+        self.psel.grid(column=2,row=1,sticky=W,pady=(10,0))
 
-        self.bsel = ttk.OptionMenu(self,self.baudrate,38400,9600,19200,38400,57600,115200)
+        self.bsel = ttk.OptionMenu(companel,self.baudrate,38400,9600,19200,38400,57600,115200)
         self.bsel.grid(column=2,row=2,sticky=W)
 
-        self.dsel = ttk.Entry(self,textvariable=self.databits,validate='all',validatecommand=(self.check_int,'%P'),width=10,justify='center')
+        self.dsel = ttk.OptionMenu(companel,self.databits,7,7,8)
         self.dsel.grid(column=2,row=3,sticky=W)
 
-        self.paritysel = ttk.OptionMenu(self, self.parity, "Odd", "None", "Even", "Odd")
+        self.paritysel = ttk.OptionMenu(companel, self.parity, "Odd", "None", "Even", "Odd")
         self.paritysel.grid(column=2,row=4,sticky=W)
 
-        self.ssel = ttk.OptionMenu(self,self.stopbit,1,1,2)
+        self.ssel = ttk.OptionMenu(companel,self.stopbit,1,1,2)
         self.ssel.grid(column=2,row=5,sticky=W)
 
-        self.connect_button = ttk.Button(self, text="CONNECT", command=self.connect)
-        self.connect_button.grid(column=2,row=6,padx = 12, pady = 12)
+        self.connect_button = ttk.Button(companel, text="CONNECT", command=self.connect)
+        self.connect_button.grid(column=1,row=6,columnspan=2,padx = 12, pady = 12)
 
         self.modbusc = ModbusConnector()
 
-        self.x_data = []
-        self.y_data = []
+        ## Hardware Settings
+        hpanel = ttk.LabelFrame(self,text="Hardware",width=200,height=300)
+        hpanel.grid(row=0,column=1)
+        hpanel.grid_propagate(0)
         
-        self.fig = Figure(figsize=(4,3))
-        self.ax = self.fig.add_subplot(111)
-        self.line,=self.ax.plot([],[],'k-',label="Live Data")
-        self.ax.set_ylim(60,90)
-        self.fig.set_facecolor("#d9d9d9")
-
-        self.canvas = FigureCanvasTkAgg(self.fig,master=self)
-        self.canvas.get_tk_widget().grid(column=3,row=1,rowspan=6,padx=12,pady=12)
-
-        
-
-    def check_int(self,P):
-
-        return P=='' or P.isdigit()
-
-    def update_plot(self):
-        self.x_data.append(time.time() % 50)
-        self.y_data.append(self.modbusc.get_float(28672))
-
-        if len(self.x_data) > 50:
-            self.x_data.pop(0)
-            self.y_data.pop(0)
-
-        self.line.set_data(range(len(self.y_data)),self.y_data)
-        self.ax.set_xlim(0,len(self.y_data))
-        self.canvas.draw()
-
-        self.after(500,self.update_plot)
+        ttk.Label(hpanel,text="Temperature Limits: ").grid(column=1,row=1)
 
     def connect(self):
 
@@ -154,8 +134,6 @@ class SettingsPage(ttk.Frame):
                                 parity = self.paritytab[self.parity.get()],
                                 stopbits = self.stopbit.get())
         self.modbusc.connect()
-
-        self.update_plot()
 
 # Class for plotting page
 
@@ -458,5 +436,13 @@ class GasPanel(ttk.Frame):
         ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=10,justify='center').grid(column=1,row=1)
 
         self.canvas.create_window(450,175,window=tpanel)
+
+        ### Process Control Layout
+        ppanel = ttk.LabelFrame(self,text="Process Control",padding=(8,4),width=150,height=300)
+        ppanel.grid_propagate(0)
+
+        ttk.Label(ppanel,text="Start Process").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
+
+        self.canvas.create_window(600,175,window=ppanel)
         
         
