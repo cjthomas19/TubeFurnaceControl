@@ -89,5 +89,4 @@ class TubeInterface:
     # UPDATE METHOD
 
     def update(self):
-
         pass

@@ -42,7 +42,14 @@ mainframe.columnconfigure(3,weight=1)
 for child in mainframe.winfo_children():
     child.grid_configure(padx=5, pady=5)
 
+def update_all():
+    tube_interface.update()
+    gaspanel.update()
+    plotting.update()
+    settings.update()
+    root.after(1000,update_all)
 
+root.after(1000,update_all)
 # Start TK main loop
 root.mainloop()
 

@@ -38,8 +38,8 @@ class SettingsPage(ttk.Frame):
         self.terminationchar=StringVar()
 
         ## Communications Settings
-        companel = ttk.LabelFrame(self,text="Communications",width=200,height=300)
-        companel.grid(row=0,column=0)
+        companel = ttk.LabelFrame(self,text="Communications",width=250,height=300)
+        companel.grid(row=0,column=1)
         companel.grid_propagate(0)
 
         ttk.Label(companel,text="COM Port: ").grid(column=1,row=1,sticky=E,pady=(10,0))
@@ -70,8 +70,8 @@ class SettingsPage(ttk.Frame):
         self.modbusc = ModbusConnector()
 
         ## Hardware Settings
-        hpanel = ttk.LabelFrame(self,text="Hardware",width=200,height=300)
-        hpanel.grid(row=0,column=1)
+        hpanel = ttk.LabelFrame(self,text="Hardware",width=250,height=300)
+        hpanel.grid(row=0,column=2)
         hpanel.grid_propagate(0)
         
         ttk.Label(hpanel,text="Temperature Limits: ").grid(column=1,row=1)
@@ -84,6 +84,10 @@ class SettingsPage(ttk.Frame):
                                 parity = self.paritytab[self.parity.get()],
                                 stopbits = self.stopbit.get())
         self.modbusc.connect()
+
+    def update(self):
+        pass
+
 
 # Class for plotting page
 
@@ -279,6 +283,8 @@ class PlotPage(ttk.Frame):
         # SettingsPage poll rate, could change.
         self.after(500, self._poll)
 
+    def update(self):
+        pass
 
 # Class to control gas panel items - valve states, selected gas, and MFC flows
 
@@ -395,4 +401,6 @@ class GasPanel(ttk.Frame):
 
         self.canvas.create_window(600,175,window=ppanel)
         
+    def update(self):
+        pass
         
