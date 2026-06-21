@@ -29,6 +29,8 @@ class SettingsPage(ttk.Frame):
 
         self.ports = ModbusConnector.get_serial_ports()
 
+        self.tube_interface = tube_interface
+
         self.port = StringVar()
         self.baudrate = IntVar()
         self.databits = IntVar(value=8)
@@ -67,7 +69,8 @@ class SettingsPage(ttk.Frame):
         self.connect_button = ttk.Button(companel, text="CONNECT", command=self.connect)
         self.connect_button.grid(column=1,row=6,columnspan=2,padx = 12, pady = 12)
 
-        self.modbusc = ModbusConnector()
+        self.status_var = StringVar()
+        ttk.Label(companel,textvariable=self.status_var).grid(column=1,row=7,pady=12,columnspan=2)
 
         ## Hardware Settings
         hpanel = ttk.LabelFrame(self,text="Hardware",width=250,height=300)
@@ -78,12 +81,23 @@ class SettingsPage(ttk.Frame):
 
     def connect(self):
 
-        self.modbusc.set_params(port = self.port.get(),
-                                baudrate = self.baudrate.get(),
-                                databits = self.databits.get(),
-                                parity = self.paritytab[self.parity.get()],
-                                stopbits = self.stopbit.get())
-        self.modbusc.connect()
+        self.status_var.set("Connecting...")
+
+        self.tube_interface.modbusc.set_params(
+                port = self.port.get(),
+                baudrate = self.baudrate.get(),
+                databits = self.databits.get(),
+                parity = self.paritytab[self.parity.get()],
+                stopbits = self.stopbit.get()
+            )
+
+        status, msg = self.tube_interface.modbusc.connect()
+
+        if status:
+            self.status_var.set("Connected")
+        else:
+            self.status_var.set(msg)
+
 
     def update(self):
         pass

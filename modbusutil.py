@@ -4,6 +4,7 @@ import serial
 
 from pymodbus.client import ModbusSerialClient
 from pymodbus.transport import CommParams
+from pymodbus.exceptions import ConnectionException, ModbusIOException
 
 
 # Class containing utility methods and state information for modbus PLC connection
@@ -50,6 +51,8 @@ class ModbusConnector:
         self.parity = parity
         self.databits = databits
         self.stopbits = stopbits
+
+        self._test_register = 12345
         
         # Store connection state
         self.connected = False
@@ -62,11 +65,22 @@ class ModbusConnector:
     def connect(self):
 
         self.modbusc.connect()
-        self.connected = True
+        self.connected = False
+        msg = ""
+        try:
+            self.modbusc.read_holding_registers(self._test_register)
+        except ModbusIOException:
+            msg = "Timeout"
+        except ConnectionException:
+            msg = "Connection Failed"
+        else:
+            msg = "Connected"
+            self.connected = True
         
+        return (self.connected, msg)
+
     # Close connection
     def disconnect(self):
-
         self.modbusc.close()
         self.connected = False
 
