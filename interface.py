@@ -304,19 +304,24 @@ class PlotPage(ttk.Frame):
 
 class GasPanel(ttk.Frame):
 
-    def add_valve(self,x,y,size,third_port):
-        self.canvas.create_polygon(x,y,x+size/2,y+size/2*math.sqrt(3),x-size/2,y+size/2*math.sqrt(3),fill='white',outline='black')
-        self.canvas.create_polygon(x,y,x+size/2,y-size/2*math.sqrt(3),x-size/2,y-size/2*math.sqrt(3),fill='white',outline='black')
+    def create_valve(self,x,y,size,third_port):
+
+        # Create a list of polygons (triangles) making up the valve and return
+        poly_list = []
+        poly_list.append(self.canvas.create_polygon(x,y,x+size/2,y+size/2*math.sqrt(3),x-size/2,y+size/2*math.sqrt(3),fill='white',outline='black'))
+        poly_list.append(self.canvas.create_polygon(x,y,x+size/2,y-size/2*math.sqrt(3),x-size/2,y-size/2*math.sqrt(3),fill='white',outline='black'))
 
         if third_port==1:
-            self.canvas.create_polygon(x,y,x+size/2*math.sqrt(3),y+size/2,x+size/2*math.sqrt(3),y-size/2,fill='white',outline='black')
+            poly_list.append(self.canvas.create_polygon(x,y,x+size/2*math.sqrt(3),y+size/2,x+size/2*math.sqrt(3),y-size/2,fill='white',outline='black'))
         elif third_port==-1:
-            self.canvas.create_polygon(x,y,x-size/2*math.sqrt(3),y+size/2,x-size/2*math.sqrt(3),y-size/2,fill='white',outline='black')
+            poly_list.append(self.canvas.create_polygon(x,y,x-size/2*math.sqrt(3),y+size/2,x-size/2*math.sqrt(3),y-size/2,fill='white',outline='black'))
 
-    def add_pipe(self,x1,y1,x2,y2):
-        self.canvas.create_line(x1,y1,x2,y2)
+        return poly_list
 
-    def add_pump(self, x, y, size):
+    def create_pipe(self,x1,y1,x2,y2):
+        return self.canvas.create_line(x1,y1,x2,y2)
+
+    def create_pump(self, x, y, size):
         self.canvas.create_oval(x-size/2,y-size/2,x+size/2,y+size/2,fill='white',outline='black')
         self.canvas.create_line(x-size/2*math.cos(math.pi/4),y+size/2*math.sin(math.pi/4),x+size/2,y)
         self.canvas.create_line(x-size/2*math.cos(math.pi/4),y-size/2*math.sin(math.pi/4),x+size/2,y)
@@ -340,27 +345,57 @@ class GasPanel(ttk.Frame):
         self.canvas = Canvas(self,width=800,height=600,background="#d9d9d9",highlightthickness=0)
         self.canvas.grid(column=1,row=1,columnspan=4)
 
+        # Store pipes for specific valve states
+        self.pipes = [[],[],[],[]]
         # Draw P&ID pipes and valves
-        self.add_pipe(100,50, 100,100)
-    
-        self.add_pipe(100,100,100,200)
-        self.add_pipe(100,200,150,200)
-        self.add_pipe(150,200,150,50)
+        p1 = self.create_pipe(100,50, 100,100)
+        self.pipes[0].append(p1)    
+        self.pipes[1].append(p1)
+
+        p2 = self.create_pipe(100,100,100,200)
+        self.pipes[0].append(p2)
+        self.pipes[1].append(p2)
+
+        p3 = self.create_pipe(100,200,150,200)
+        self.pipes[0].append(p3)
+        self.pipes[2].append(p3)
+        p4 = self.create_pipe(150,200,150,50)
+        self.pipes[0].append(p4)
+        self.pipes[2].append(p4)
+
+        p5 = self.create_pipe(100,200,100,300)
+        self.pipes[0].append(p5)
+        self.pipes[1].append(p5)
+        self.pipes[2].append(p5)
+
+        p6 = self.create_pipe(100,300,50, 300)
+        self.pipes[0].append(p6)
+        self.pipes[3].append(p6)
+
+        p7 = self.create_pipe(50, 300,50, 50)
+        self.pipes[0].append(p7)
+        self.pipes[3].append(p7)
+
+        p8 = self.create_pipe(100,300,100,400)
+        self.pipes[0].append(p8)
+        self.pipes[1].append(p8)
+        self.pipes[2].append(p8)
+        self.pipes[3].append(p8)
+
+        p9 = self.create_pipe(100,400,400,400)
+        self.pipes[0].append(p9)
+        self.pipes[1].append(p9)
+        self.pipes[2].append(p9)
+        self.pipes[3].append(p9)
+
+        self.create_pipe(400,400,750,400)
         
-        self.add_pipe(100,200,100,300)
-        self.add_pipe(100,300,50, 300)
-        self.add_pipe(50, 300,50, 50)
+        self.valves = {}
+        self.valves[1] = self.create_valve(100,100,20,0)
+        self.valves[2] = self.create_valve(100,200,20,1)
+        self.valves[3] = self.create_valve(100,300,20,-1)
 
-        self.add_pipe(100,300,100,400)
-        self.add_pipe(100,400,400,400)
-
-        self.add_pipe(400,400,750,400)
-        
-        self.add_valve(100,100,20,0)
-        self.add_valve(100,200,20,1)
-        self.add_valve(100,300,20,-1)
-
-        self.add_pump(725,400,30)
+        self.create_pump(725,400,30)
 
         # Add labels
         self.canvas.create_text(100,40,text="N2")
@@ -386,9 +421,9 @@ class GasPanel(ttk.Frame):
 
         # Header label above the controls.
         ttk.Label(gpanel, text="Gas Selection:").grid(column=1, row=0, sticky=W, pady=(0,6))
-        ttk.Button(gpanel, text="Nitrogen", command=lambda: self.tube_interface.set_gas("Nitrogen")).grid(column=1,row=1,sticky=N,columnspan=2)
-        ttk.Button(gpanel, text="Oxygen", command=lambda: self.tube_interface.set_gas("Oxygen")).grid(column=1,row=2,sticky=N,columnspan=2)
-        ttk.Button(gpanel, text="Forming Gas", command=lambda: self.tube_interface.set_gas("Forming Gas")).grid(column=1,row=3,sticky=N,columnspan=2)
+        ttk.Button(gpanel, text="Nitrogen", command=lambda: self.tube_interface.set_gas(1)).grid(column=1,row=1,sticky=N,columnspan=2)
+        ttk.Button(gpanel, text="Oxygen", command=lambda: self.tube_interface.set_gas(2)).grid(column=1,row=2,sticky=N,columnspan=2)
+        ttk.Button(gpanel, text="Forming Gas", command=lambda: self.tube_interface.set_gas(3)).grid(column=1,row=3,sticky=N,columnspan=2)
         ttk.Label(gpanel, text="MFC Setpoint:").grid(column=1, row=4, sticky=W, pady=(20,0))
 
         ttk.Entry(gpanel,textvariable=self.flowSet,validate='all',width=10,validatecommand=(self.vcmd,'%P'),justify='center').grid(column=1,row=5)
@@ -416,5 +451,33 @@ class GasPanel(ttk.Frame):
         self.canvas.create_window(600,175,window=ppanel)
         
     def update(self):
-        pass
-        
+
+        # Set valve & pipe highlights based on active gas
+        # TO-DO: Set valve states directly from PLC registers
+        for k,v in self.valves.items():
+            if k == self.tube_interface.active_gas:
+                self.canvas.itemconfigure(v[0],fill='black')
+                if len(v) > 2:
+                    self.canvas.itemconfigure(v[1],fill='white')
+                    self.canvas.itemconfigure(v[2],fill='black')
+                else:
+                    self.canvas.itemconfigure(v[1],fill='black')
+
+            elif k > self.tube_interface.active_gas and self.tube_interface.active_gas != 0:
+                if len(v) > 2:
+                    self.canvas.itemconfigure(v[0],fill='black')
+                    self.canvas.itemconfigure(v[1],fill='black')
+                    self.canvas.itemconfigure(v[2],fill='white')
+                else:
+                    self.canvas.itemconfigure(v[0],fill='white')
+                    self.canvas.itemconfigure(v[1],fill='white')
+            else:
+                for valve in v:
+                    self.canvas.itemconfigure(valve,fill='white')
+
+        for pipe in self.pipes[0]:
+            self.canvas.itemconfigure(pipe,width=1)
+
+        if self.tube_interface.active_gas != 0:
+            for pipe in self.pipes[self.tube_interface.active_gas]:
+                self.canvas.itemconfigure(pipe,width=4,fill='black')

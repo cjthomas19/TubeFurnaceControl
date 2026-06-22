@@ -11,6 +11,11 @@ class Register:
     name: str
 
 # Class to handle communications with the tube furnace. Includes get and set methods for all variables of interest.
+# Gases:
+#   0: None 
+#   1: Nitrogen
+#   2: Oxygen
+#   3: Forming Gas
 
 class TubeInterface:
 
@@ -41,6 +46,9 @@ class TubeInterface:
             
         }
 
+        # Default to no gases active
+        self.active_gas = 0
+
     # PROPERTY SETTER METHODS
     
     def set_temperature(self, temp_id, value):
@@ -49,10 +57,12 @@ class TubeInterface:
 
     def set_gas(self, gas_id):
 
-        pass
+        # TO-DO : Send message to PLC to swap gas
+        #         Wait for PLC to swap back
+        if gas_id >= 0 and gas_id <= 3:
+            self.active_gas = gas_id
 
     def set_mfc_flow(self, flow_rate):
-
         pass
 
     # PROPERTY GETTER METHODS
@@ -72,8 +82,7 @@ class TubeInterface:
         pass
 
     def get_gas(self):
-
-        pass
+        return self.active_gas
 
     def get_mfc_flow(self):
 
