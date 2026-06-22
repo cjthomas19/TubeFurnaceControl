@@ -76,8 +76,14 @@ class SettingsPage(ttk.Frame):
         hpanel = ttk.LabelFrame(self,text="Hardware",width=250,height=300)
         hpanel.grid(row=0,column=2)
         hpanel.grid_propagate(0)
+
+        ttk.Label(hpanel,text="Control Mode: ").grid(column=1,row=0)
+
+        self.mode = StringVar()
+        self.modesel = ttk.OptionMenu(hpanel, self.mode, "Gas Only","Gas Only", "Full Control")
+        self.modesel.grid(row=1,column=1,pady=6)
         
-        ttk.Label(hpanel,text="Temperature Limits: ").grid(column=1,row=1)
+        ttk.Label(hpanel,text="Temperature Limits: ").grid(column=1,row=2)
 
     def connect(self):
 
@@ -418,6 +424,7 @@ class GasPanel(ttk.Frame):
         self.vcmd = parent.register(self._validateFlow)
 
         self.tempSet = DoubleVar(value=150)
+        self.tRamp = DoubleVar(value=3)
 
         # Header label above the controls.
         ttk.Label(gpanel, text="Gas Selection:").grid(column=1, row=0, sticky=W, pady=(0,6))
@@ -431,22 +438,26 @@ class GasPanel(ttk.Frame):
         self.flowscale['command'] = lambda val : self.flowSet.set(f'{float(val):.02f}')
         self.flowscale.grid(column=2,row=5,sticky=(W,E),padx=10)
 
+        ttk.Button(gpanel,text="Disable Gases", command=lambda: self.tube_interface.set_gas(0)).grid(column=1,row=6,sticky=N,columnspan=2,pady=20)
         self.canvas.create_window(300,175,window=gpanel)
 
         ### Temp Control Layout
         tpanel = ttk.LabelFrame(self,text="Temp. Control",padding=(8,4),width=150,height=300)
         tpanel.grid_propagate(0)
 
-        ttk.Label(tpanel, text = "Setpoint").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
+        ttk.Label(tpanel, text = "Temp. Setpoint:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
         ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=10,justify='center').grid(column=1,row=1)
 
+        ttk.Label(tpanel, text = "Ramp Rate:").grid(column=1,row=2,sticky=N,pady=6)
+        ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=10,justify='center').grid(column=1,row=3)
         self.canvas.create_window(450,175,window=tpanel)
 
         ### Process Control Layout
         ppanel = ttk.LabelFrame(self,text="Process Control",padding=(8,4),width=150,height=300)
         ppanel.grid_propagate(0)
 
-        ttk.Label(ppanel,text="Start Process").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
+        ttk.Label(ppanel,text="Send Parameters:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
+        ttk.Button(ppanel,text="Send",command=lambda: print("Placeholder")).grid(column=1,row=1,sticky=N)
 
         self.canvas.create_window(600,175,window=ppanel)
         
