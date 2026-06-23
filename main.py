@@ -50,6 +50,13 @@ def update_all():
     root.after(1000,update_all)
 
 root.after(1000,update_all)
+                        
+# Handle window close
+def on_close():
+    modbusc.disconnect()
+    root.destroy()
+    
+root.protocol("WM_DELETE_WINDOW", on_close)
 # Start TK main loop
 root.mainloop()
 

@@ -61,6 +61,8 @@ class TubeInterface:
         #         Wait for PLC to swap back
         if gas_id >= 0 and gas_id <= 3:
             self.active_gas = gas_id
+        if self.modbusc.connected:
+            self.modbusc.set_int(0,gas_id)
 
     def set_mfc_flow(self, flow_rate):
         pass

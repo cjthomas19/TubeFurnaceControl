@@ -52,7 +52,7 @@ class ModbusConnector:
         self.databits = databits
         self.stopbits = stopbits
 
-        self._test_register = 12345
+        self._test_register = 0
         
         # Store connection state
         self.connected = False
@@ -105,6 +105,14 @@ class ModbusConnector:
         # Re-connect only if we were already connected
         if self.connected:
             self.connect()
+
+    # Write an integer value to the given register
+    def set_int(self,register,value):
+
+        if self.connected:
+            self.modbusc.write_register(register,value)
+        else:
+            return 0
 
     # Read a floating point number from the given register
     def get_float(self, register):
