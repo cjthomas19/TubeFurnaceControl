@@ -425,6 +425,7 @@ class GasPanel(ttk.Frame):
 
         self.tempSet = DoubleVar(value=150)
         self.tRamp = DoubleVar(value=3)
+        self.soak = DoubleVar(value=60)
 
         # Header label above the controls.
         ttk.Label(gpanel, text="Gas Selection:").grid(column=1, row=0, sticky=W, pady=(0,6))
@@ -445,19 +446,49 @@ class GasPanel(ttk.Frame):
         tpanel = ttk.LabelFrame(self,text="Temp. Control",padding=(8,4),width=150,height=300)
         tpanel.grid_propagate(0)
 
-        ttk.Label(tpanel, text = "Temp. Setpoint:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
-        ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=10,justify='center').grid(column=1,row=1)
+        ttk.Label(tpanel, text = "Stage 1:",justify='center').grid(column=1,row=0,sticky=(W,E),pady=(0,6),columnspan=3)
+        ttk.Label(tpanel, text = "SP: ").grid(column=1,row=1,pady=3,padx = 3, sticky=E)
+        ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=1,sticky=W)
+        ttk.Label(tpanel, text = " °C").grid(column=3,row=1,sticky=W)
 
-        ttk.Label(tpanel, text = "Ramp Rate:").grid(column=1,row=2,sticky=N,pady=6)
-        ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=10,justify='center').grid(column=1,row=3)
+        ttk.Label(tpanel, text = "Ramp: ").grid(column=1,row=2,sticky=E,pady=6,padx = 3)
+        ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=2,sticky=W)
+        ttk.Label(tpanel, text = " °C/min").grid(column=3,row=2,sticky=W)
+
+        ttk.Label(tpanel, text = "Soak: ").grid(column=1,row=3,sticky=E,pady=6,padx=3)
+        ttk.Entry(tpanel,textvariable=self.soak,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=3,sticky=W)
+        ttk.Label(tpanel, text = " min").grid(column=3,row=3,sticky=W)
+
+        ttk.Label(tpanel, text = "Stage 2:",justify='center').grid(column=1,row=4,sticky=(N,S,W,E),pady=6)
+        ttk.Checkbutton(tpanel).grid(column=2,row=4,pady=6)
+        
+        ttk.Label(tpanel, text = "SP: ").grid(column=1,row=5,pady=3,padx = 3, sticky=E)
+        ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=5,sticky=W)
+        ttk.Label(tpanel, text = " °C").grid(column=3,row=5,sticky=W)
+
+        ttk.Label(tpanel, text = "Ramp: ").grid(column=1,row=6,sticky=E,pady=6,padx = 3)
+        ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=6,sticky=W)
+        ttk.Label(tpanel, text = " °C/min").grid(column=3,row=6,sticky=W)
+
+        ttk.Label(tpanel, text = "Soak: ").grid(column=1,row=7,sticky=E,pady=6,padx=3)
+        ttk.Entry(tpanel,textvariable=self.soak,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=7,sticky=W)
+        ttk.Label(tpanel, text = " min").grid(column=3,row=7,sticky=W)
+
+        
         self.canvas.create_window(450,175,window=tpanel)
 
         ### Process Control Layout
         ppanel = ttk.LabelFrame(self,text="Process Control",padding=(8,4),width=150,height=300)
         ppanel.grid_propagate(0)
 
-        ttk.Label(ppanel,text="Send Parameters:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
-        ttk.Button(ppanel,text="Send",command=lambda: print("Placeholder")).grid(column=1,row=1,sticky=N)
+        ttk.Label(ppanel,text="Process:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
+        ttk.Button(ppanel,text="Start",command=lambda: print("Placeholder")).grid(column=1,row=1,sticky=N)
+        ttk.Button(ppanel,text="Stop",command=lambda: print("Placeholder"),state='disabled').grid(column=1,row=2,sticky=N)
+
+
+        ttk.Label(ppanel,text="Return all to Idle:").grid(column=1,row=3,sticky=(N,W,E),pady=6)
+        ttk.Button(ppanel,text="Idle",command=lambda: print("Placeholder")).grid(column=1,row=4,sticky=N)
+
 
         self.canvas.create_window(600,175,window=ppanel)
         
