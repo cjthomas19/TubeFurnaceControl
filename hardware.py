@@ -7,7 +7,7 @@ import modbusutil
 @dataclass
 class Register:
     addr: int
-    current_value: int
+    value: int
     name: str
 
 # Class to handle communications with the tube furnace. Includes get and set methods for all variables of interest.
@@ -33,16 +33,16 @@ class TubeInterface:
         
         self._registers = {
 
-            "T1_PV" : Register(28672, 0, "Temperature 1 PV"),
-            "T2_PV" : Register(28676, 0, "Temperature 2 PV"),
-            "T3_PV" : Register(28680, 0, "Temperature 3 PV"),
-            "GAS_FLOW" : Register(28684, 0, "Gas Flow Rate"),
-            "GAS_SELECT" : Register(28686, 0, "Gas Selection"),
-            "GAS_ACTIVE" : Register(28688, 0, "Gas Active"),
-            "PRESSURE" : Register(28690, 0, "Pressure"),
-            "T1_SV" : Register(28674, 0, "Temperature 1 SV"),
-            "T2_SV" : Register(28678, 0, "Temperature 2 SV"),
-            "T3_SV" : Register(28682, 0, "Temperature 3 SV")
+##            "T1_PV" : Register(None, 0, "Temperature 1 PV"),
+##            "T2_PV" : Register(None, 0, "Temperature 2 PV"),
+##            "T3_PV" : Register(None, 0, "Temperature 3 PV"),
+            "FLOW_PV" : Register(28694, 0, "Mass Flow Rate"),
+            "FLOW_SV" : Register(28696, 0, "Mass Flow Set"),
+            "GAS_SELECT" : Register(1, 0, "Gas Selection"),
+            "PRESSURE" : Register(28684, 0, "Pressure"),
+##            "T1_SV" : Register(28674, 0, "Temperature 1 SV"),
+##            "T2_SV" : Register(28678, 0, "Temperature 2 SV"),
+##            "T3_SV" : Register(28682, 0, "Temperature 3 SV")
             
         }
 
@@ -65,7 +65,9 @@ class TubeInterface:
             self.modbusc.set_int(0,gas_id)
 
     def set_mfc_flow(self, flow_rate):
-        pass
+
+        if self.modbusc.connected:
+            self.modbusc.set_float(28696, flow_rate)
 
     # PROPERTY GETTER METHODS
 
@@ -90,14 +92,18 @@ class TubeInterface:
 
         pass
 
-    def get_value(self, val_id):
-
-        pass
-
     def is_connected(self):
         return self.modbusc.connected
 
-    # UPDATE METHOD
+    def get_value(self, reg_id):
+        return self._registers[reg_id].value
 
+    def update_value(self, reg_id):
+        reg = self._registers[reg_id]
+        reg.value = self.modbusc.get_float(reg.addr)
+
+    # UPDATE METHOD
     def update(self):
-        pass
+        if self.modbusc.connected:
+            for reg in self._registers:
+                self.update_value(reg)

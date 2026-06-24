@@ -6,6 +6,8 @@ import interface
 from modbusutil import ModbusConnector
 from hardware import TubeInterface
 
+UPDATE_RATE = 1000 # serial refresh rate, ms
+
 # Initialize modbus connection and hardware handler with default parameters
 modbusc = ModbusConnector()
 tube_interface = TubeInterface(modbusc)
@@ -47,9 +49,9 @@ def update_all():
     gaspanel.update()
     plotting.update()
     settings.update()
-    root.after(1000,update_all)
+    root.after(UPDATE_RATE,update_all)
 
-root.after(1000,update_all)
+root.after(UPDATE_RATE,update_all)
                         
 # Handle window close
 def on_close():

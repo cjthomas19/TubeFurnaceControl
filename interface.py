@@ -299,12 +299,8 @@ class PlotPage(ttk.Frame):
         self.canvas.draw_idle()
         self.status_var.set(f"Logging — {elapsed:.0f}s elapsed")
 
-        # Schedule next poll in 500ms, keeps the loop running; matches 
-        # SettingsPage poll rate, could change.
-        self.after(500, self._poll)
-
     def update(self):
-        pass
+        self._poll()
 
 # Class to control gas panel items - valve states, selected gas, and MFC flows
 
@@ -409,7 +405,10 @@ class GasPanel(ttk.Frame):
         self.canvas.create_text(50,40,text="N2/H2")
 
         # MFC & PT Data box templates
+        self.mfc_flow = StringVar(value="0")
         self.canvas.create_rectangle(125,380,200,420,fill='white',outline='black')
+        ttk.Label(self.canvas,textvariable=self.mfc_flow,background='white',font=10).place(x=162.5,y=400,anchor='center')
+        
         self.canvas.create_rectangle(600,380,675,420,fill='white',outline='black')
         
         
@@ -420,7 +419,7 @@ class GasPanel(ttk.Frame):
         gpanel.grid_propagate(0)
 
         # Register validation function with tkinter frame
-        self.flowSet = DoubleVar(value=2.5)
+        self.flowSet = DoubleVar(value=0.0)
         self.vcmd = parent.register(self._validateFlow)
 
         self.tempSet = DoubleVar(value=150)
@@ -493,6 +492,11 @@ class GasPanel(ttk.Frame):
         self.canvas.create_window(600,175,window=ppanel)
         
     def update(self):
+
+        if self.tube_interface.is_connected():
+            self.mfc_flow.set('{0:.2f}'.format(self.tube_interface.get_value("FLOW_PV")))
+        
+            self.tube_interface.set_mfc_flow(self.flowSet.get())
 
         # Set valve & pipe highlights based on active gas
         # TO-DO: Set valve states directly from PLC registers

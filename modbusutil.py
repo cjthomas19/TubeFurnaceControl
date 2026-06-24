@@ -124,4 +124,9 @@ class ModbusConnector:
         val = ModbusSerialClient.convert_from_registers(resp.registers,ModbusSerialClient.DATATYPE.FLOAT32,word_order="little")
 
         return val
+
+    def set_float(self, register, value):
+
+        cval = ModbusSerialClient.convert_to_registers(value, ModbusSerialClient.DATATYPE.FLOAT32, word_order="little")
+        self.modbusc.write_registers(register,cval)
         
