@@ -57,7 +57,7 @@ class SettingsPage(ttk.Frame):
         self.bsel = ttk.OptionMenu(companel,self.baudrate,38400,9600,19200,38400,57600,115200)
         self.bsel.grid(column=2,row=2,sticky=W)
 
-        self.dsel = ttk.OptionMenu(companel,self.databits,7,7,8)
+        self.dsel = ttk.OptionMenu(companel,self.databits,8,7,8)
         self.dsel.grid(column=2,row=3,sticky=W)
 
         self.paritysel = ttk.OptionMenu(companel, self.parity, "Odd", "None", "Even", "Odd")
@@ -415,7 +415,7 @@ class GasPanel(ttk.Frame):
         self.canvas.create_image(400,430,image=self.tube_img,anchor='center')
 
         ### Gas Control layout
-        gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=150,height=300)
+        gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=300)
         gpanel.grid_propagate(0)
 
         # Register validation function with tkinter frame
@@ -442,7 +442,7 @@ class GasPanel(ttk.Frame):
         self.canvas.create_window(300,175,window=gpanel)
 
         ### Temp Control Layout
-        tpanel = ttk.LabelFrame(self,text="Temp. Control",padding=(8,4),width=150,height=300)
+        tpanel = ttk.LabelFrame(self,text="Temp. Control",padding=(8,4),width=200,height=300)
         tpanel.grid_propagate(0)
 
         ttk.Label(tpanel, text = "Stage 1:",justify='center').grid(column=1,row=0,sticky=(W,E),pady=(0,6),columnspan=3)
@@ -474,10 +474,10 @@ class GasPanel(ttk.Frame):
         ttk.Label(tpanel, text = " min").grid(column=3,row=7,sticky=W)
 
         
-        self.canvas.create_window(450,175,window=tpanel)
+        self.canvas.create_window(500,175,window=tpanel)
 
         ### Process Control Layout
-        ppanel = ttk.LabelFrame(self,text="Process Control",padding=(8,4),width=150,height=300)
+        ppanel = ttk.LabelFrame(self,text="Process Control",padding=(8,4),width=200,height=300)
         ppanel.grid_propagate(0)
 
         ttk.Label(ppanel,text="Process:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
@@ -489,7 +489,7 @@ class GasPanel(ttk.Frame):
         ttk.Button(ppanel,text="Idle",command=lambda: print("Placeholder")).grid(column=1,row=4,sticky=N)
 
 
-        self.canvas.create_window(600,175,window=ppanel)
+        self.canvas.create_window(700,175,window=ppanel)
         
     def update(self):
 
