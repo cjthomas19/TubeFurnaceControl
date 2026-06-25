@@ -6,7 +6,7 @@ import interface
 from modbusutil import ModbusConnector
 from hardware import TubeInterface
 
-UPDATE_RATE = 100 # serial refresh rate, ms
+UPDATE_RATE = 1000 # serial refresh rate, ms
 
 # Initialize modbus connection and hardware handler with default parameters
 modbusc = ModbusConnector()

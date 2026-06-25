@@ -9,6 +9,7 @@ class Register:
     addr: int
     value: int
     name: str
+    dtype: str
 
 # Class to handle communications with the tube furnace. Includes get and set methods for all variables of interest.
 # Gases:
@@ -33,13 +34,13 @@ class TubeInterface:
         
         self._registers = {
 
-##            "T1_PV" : Register(None, 0, "Temperature 1 PV"),
-##            "T2_PV" : Register(None, 0, "Temperature 2 PV"),
-##            "T3_PV" : Register(None, 0, "Temperature 3 PV"),
-            "FLOW_PV" : Register(28694, 0, "Mass Flow Rate"),
-            "FLOW_SV" : Register(28696, 0, "Mass Flow Set"),
-            "GAS_SELECT" : Register(1, 0, "Gas Selection"),
-            "PRESSURE" : Register(28684, 0, "Pressure"),
+            "T1_PV" : Register(9, 0, "Temperature 1 PV",'int'),
+            "T2_PV" : Register(19, 0, "Temperature 2 PV",'int'),
+            "T3_PV" : Register(29, 0, "Temperature 3 PV",'int'),
+            "FLOW_PV" : Register(28694, 0, "Mass Flow Rate",'float'),
+            "FLOW_SV" : Register(28696, 0, "Mass Flow Set",'float'),
+            "GAS_SELECT" : Register(1, 0, "Gas Selection",'float'),
+            "PRESSURE" : Register(28684, 0, "Pressure",'float'),
 ##            "T1_SV" : Register(28674, 0, "Temperature 1 SV"),
 ##            "T2_SV" : Register(28678, 0, "Temperature 2 SV"),
 ##            "T3_SV" : Register(28682, 0, "Temperature 3 SV")
@@ -100,8 +101,11 @@ class TubeInterface:
 
     def update_value(self, reg_id):
         reg = self._registers[reg_id]
-        reg.value = self.modbusc.get_float(reg.addr)
-
+        if reg.dtype == 'float':
+            reg.value = self.modbusc.get_float(reg.addr)
+        elif reg.dtype == 'int':
+            reg.value = self.modbusc.get_int(reg.addr)
+            
     # UPDATE METHOD
     def update(self):
         if self.modbusc.connected:
