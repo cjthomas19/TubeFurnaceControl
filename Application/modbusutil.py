@@ -135,4 +135,13 @@ class ModbusConnector:
 
         cval = ModbusSerialClient.convert_to_registers(value, ModbusSerialClient.DATATYPE.FLOAT32, word_order="little")
         self.modbusc.write_registers(register,cval)
+
+    def set_int(self, register, value):
+
+        cval = ModbusSerialClient.convert_to_registers(value, ModbusSerialClient.DATATYPE.INT16,word_order="little")
+        self.modbusc.write_registers(register, cval)
+
+    def set_coil(self, register, value):
+
+        self.modbusc.write_coil(register, value)
         

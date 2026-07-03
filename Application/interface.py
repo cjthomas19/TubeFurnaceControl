@@ -405,7 +405,7 @@ class GasPanel(ttk.Frame):
         self.canvas.create_text(50,40,text="N2/H2")
 
         # MFC & PT Data box templates
-        self.mfc_flow = StringVar(value="0")
+        self.mfc_flow = StringVar(value="---")
         self.canvas.create_rectangle(125,380,200,420,fill='white',outline='black')
         ttk.Label(self.canvas,textvariable=self.mfc_flow,background='white',font=10).place(x=162.5,y=400,anchor='center')
         
@@ -422,9 +422,13 @@ class GasPanel(ttk.Frame):
         self.flowSet = DoubleVar(value=0.0)
         self.vcmd = parent.register(self._validateFlow)
 
-        self.tempSet = DoubleVar(value=150)
-        self.tRamp = DoubleVar(value=3)
-        self.soak = DoubleVar(value=60)
+        self.tempSet = IntVar(value=150)
+        self.tRamp = IntVar(value=5)
+        self.dwell = IntVar(value=60)
+
+        self.tempSet2 = IntVar(value=150)
+        self.tRamp2 = IntVar(value=5)
+        self.dwell2 = IntVar(value=60)
 
         # Header label above the controls.
         ttk.Label(gpanel, text="Gas Selection:").grid(column=1, row=0, sticky=W, pady=(0,6))
@@ -454,23 +458,23 @@ class GasPanel(ttk.Frame):
         ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=2,sticky=W)
         ttk.Label(tpanel, text = " °C/min").grid(column=3,row=2,sticky=W)
 
-        ttk.Label(tpanel, text = "Soak: ").grid(column=1,row=3,sticky=E,pady=6,padx=3)
-        ttk.Entry(tpanel,textvariable=self.soak,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=3,sticky=W)
+        ttk.Label(tpanel, text = "Dwell: ").grid(column=1,row=3,sticky=E,pady=6,padx=3)
+        ttk.Entry(tpanel,textvariable=self.dwell,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=3,sticky=W)
         ttk.Label(tpanel, text = " min").grid(column=3,row=3,sticky=W)
 
         ttk.Label(tpanel, text = "Stage 2:",justify='center').grid(column=1,row=4,sticky=(N,S,W,E),pady=6)
         ttk.Checkbutton(tpanel).grid(column=2,row=4,pady=6)
         
         ttk.Label(tpanel, text = "SP: ").grid(column=1,row=5,pady=3,padx = 3, sticky=E)
-        ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=5,sticky=W)
+        ttk.Entry(tpanel,textvariable=self.tempSet2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=5,sticky=W)
         ttk.Label(tpanel, text = " °C").grid(column=3,row=5,sticky=W)
 
         ttk.Label(tpanel, text = "Ramp: ").grid(column=1,row=6,sticky=E,pady=6,padx = 3)
-        ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=6,sticky=W)
+        ttk.Entry(tpanel,textvariable=self.tRamp2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=6,sticky=W)
         ttk.Label(tpanel, text = " °C/min").grid(column=3,row=6,sticky=W)
 
-        ttk.Label(tpanel, text = "Soak: ").grid(column=1,row=7,sticky=E,pady=6,padx=3)
-        ttk.Entry(tpanel,textvariable=self.soak,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=7,sticky=W)
+        ttk.Label(tpanel, text = "Dwell: ").grid(column=1,row=7,sticky=E,pady=6,padx=3)
+        ttk.Entry(tpanel,textvariable=self.dwell2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=7,sticky=W)
         ttk.Label(tpanel, text = " min").grid(column=3,row=7,sticky=W)
 
         
@@ -488,8 +492,17 @@ class GasPanel(ttk.Frame):
         ttk.Label(ppanel,text="Return all to Idle:").grid(column=1,row=3,sticky=(N,W,E),pady=6)
         ttk.Button(ppanel,text="Idle",command=lambda: print("Placeholder")).grid(column=1,row=4,sticky=N)
 
+        ttk.Label(ppanel,text="Recipe:").grid(column=1,row=5,sticky=(N,W,E),pady=6)
+        ttk.Button(ppanel,text="Send", command = self.send_recipe).grid(column=1,row=6,sticky=N)
+
 
         self.canvas.create_window(700,175,window=ppanel)
+
+    def send_recipe(self):
+
+        if self.tube_interface.is_connected():
+
+            self.tube_interface.send_recp_params(self.tempSet.get(), self.tRamp.get(), self.dwell.get(), self.tempSet2.get(), self.tRamp2.get(), self.dwell2.get())
         
     def update(self):
 

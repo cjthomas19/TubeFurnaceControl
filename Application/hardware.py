@@ -105,6 +105,18 @@ class TubeInterface:
             reg.value = self.modbusc.get_float(reg.addr)
         elif reg.dtype == 'int':
             reg.value = self.modbusc.get_int(reg.addr)
+
+    def send_recp_params(self, sp, rr, dw, sp2, rr2, dw2):
+
+        self.modbusc.set_int(100,dw)
+        self.modbusc.set_int(101,sp)
+        self.modbusc.set_int(102,rr)
+        self.modbusc.set_int(103,dw2)
+        self.modbusc.set_int(104,sp2)
+        self.modbusc.set_int(105,rr2)
+
+        self.modbusc.set_coil(16384,True)
+        
             
     # UPDATE METHOD
     def update(self):
