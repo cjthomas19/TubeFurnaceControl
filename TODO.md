@@ -1,0 +1,5 @@
+- [] Add functional "Run" button and modify PLC code to respond
+- [] Better organize tracked variables
+- [] Make PLC communicate with each controller separately when setting recipe parameters (instead of broadcasting)
+- [] Add maximum temperature deviation protection in PLC program
+- [] Add implementation of template functions in "hardware.py"
