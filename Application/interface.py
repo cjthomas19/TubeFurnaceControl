@@ -306,12 +306,18 @@ class PlotPage(ttk.Frame):
 
 class GasPanel(ttk.Frame):
 
-    def create_valve(self,x,y,size,third_port):
+    def create_valve(self,x,y,size,third_port,rot=0):
+
+        # Create triangle vertices and rotate by rot:
+        vert = [(size/2,size/2*math.sqrt(3)),(-size/2,size/2*math.sqrt(3))]
+
+        vert[0] = (vert[0][0] * math.cos(rot) + vert[0][1] * math.sin(rot), vert[0][0] * -math.sin(rot) + vert[0][1] * math.cos(rot))
+        vert[1] = (vert[1][0] * math.cos(rot) + vert[1][1] * math.sin(rot), vert[1][0] * -math.sin(rot) + vert[1][1] * math.cos(rot))
 
         # Create a list of polygons (triangles) making up the valve and return
         poly_list = []
-        poly_list.append(self.canvas.create_polygon(x,y,x+size/2,y+size/2*math.sqrt(3),x-size/2,y+size/2*math.sqrt(3),fill='white',outline='black'))
-        poly_list.append(self.canvas.create_polygon(x,y,x+size/2,y-size/2*math.sqrt(3),x-size/2,y-size/2*math.sqrt(3),fill='white',outline='black'))
+        poly_list.append(self.canvas.create_polygon(x,y,x+vert[0][0],y+vert[0][1],x+vert[1][0],y+vert[1][1],fill='white',outline='black'))
+        poly_list.append(self.canvas.create_polygon(x,y,x-vert[0][0],y-vert[0][1],x-vert[1][0],y-vert[1][1],fill='white',outline='black'))
 
         if third_port==1:
             poly_list.append(self.canvas.create_polygon(x,y,x+size/2*math.sqrt(3),y+size/2,x+size/2*math.sqrt(3),y-size/2,fill='white',outline='black'))
@@ -325,8 +331,8 @@ class GasPanel(ttk.Frame):
 
     def create_pump(self, x, y, size):
         self.canvas.create_oval(x-size/2,y-size/2,x+size/2,y+size/2,fill='white',outline='black')
-        self.canvas.create_line(x-size/2*math.cos(math.pi/4),y+size/2*math.sin(math.pi/4),x+size/2,y)
-        self.canvas.create_line(x-size/2*math.cos(math.pi/4),y-size/2*math.sin(math.pi/4),x+size/2,y)
+        self.canvas.create_line(x-size/2*math.cos(math.pi/4),y+size/2*math.sin(math.pi/4),x+size/2*math.cos(math.pi/12),y+size/2*math.sin(math.pi/12))
+        self.canvas.create_line(x-size/2*math.cos(math.pi/4),y-size/2*math.sin(math.pi/4),x+size/2*math.cos(math.pi/12),y-size/2*math.sin(math.pi/12))
 
     def _validateFlow(self,P):
         valid = (P.replace('.','',1).isdigit() or P=="")
@@ -341,10 +347,10 @@ class GasPanel(ttk.Frame):
         self.tube_interface = tube_interface
 
         # Rescale tube image using HAMMING filter (5) for sharper image
-        self.tube_img = ImageTk.PhotoImage(Image.open("tubedwg.png").resize((400,200),5))
+        self.tube_img = ImageTk.PhotoImage(Image.open("tubedwg.png").resize((500,300),resample=Image.Resampling.HAMMING))
 
         # Prepare canvas
-        self.canvas = Canvas(self,width=800,height=600,background="#d9d9d9",highlightthickness=0)
+        self.canvas = Canvas(self,width=1200,height=750,background="#d9d9d9",highlightthickness=0)
         self.canvas.grid(column=1,row=1,columnspan=4)
 
         # Store pipes for specific valve states
@@ -358,10 +364,10 @@ class GasPanel(ttk.Frame):
         self.pipes[0].append(p2)
         self.pipes[1].append(p2)
 
-        p3 = self.create_pipe(100,200,150,200)
+        p3 = self.create_pipe(100,200,160,200)
         self.pipes[0].append(p3)
         self.pipes[2].append(p3)
-        p4 = self.create_pipe(150,200,150,50)
+        p4 = self.create_pipe(160,200,160,50)
         self.pipes[0].append(p4)
         self.pipes[2].append(p4)
 
@@ -370,49 +376,55 @@ class GasPanel(ttk.Frame):
         self.pipes[1].append(p5)
         self.pipes[2].append(p5)
 
-        p6 = self.create_pipe(100,300,50, 300)
+        p6 = self.create_pipe(100,300,40, 300)
         self.pipes[0].append(p6)
         self.pipes[3].append(p6)
 
-        p7 = self.create_pipe(50, 300,50, 50)
+        p7 = self.create_pipe(40, 300,40, 50)
         self.pipes[0].append(p7)
         self.pipes[3].append(p7)
 
-        p8 = self.create_pipe(100,300,100,400)
+        p8 = self.create_pipe(100,300,100,500)
         self.pipes[0].append(p8)
         self.pipes[1].append(p8)
         self.pipes[2].append(p8)
         self.pipes[3].append(p8)
 
-        p9 = self.create_pipe(100,400,400,400)
+        p9 = self.create_pipe(100,500,400,500)
         self.pipes[0].append(p9)
         self.pipes[1].append(p9)
         self.pipes[2].append(p9)
         self.pipes[3].append(p9)
 
-        self.create_pipe(400,400,750,400)
+        self.create_pipe(400,500,1100,500)
+        self.create_pipe(900,500,900,425)
+        self.create_pipe(900,425,1050,425)
+        self.create_pipe(1050,425,1050,500)
         
         self.valves = {}
-        self.valves[1] = self.create_valve(100,100,20,0)
-        self.valves[2] = self.create_valve(100,200,20,1)
-        self.valves[3] = self.create_valve(100,300,20,-1)
+        self.valves[1] = self.create_valve(100,100,25,0,0)
+        self.valves[2] = self.create_valve(100,200,25,1,0)
+        self.valves[3] = self.create_valve(100,300,25,-1,0)
 
-        self.create_pump(725,400,30)
+        self.create_valve(950,500,25,0,math.pi/2)
+        self.create_valve(975,425,25,0,math.pi/2)
+
+        self.create_pump(1010,500,35)
 
         # Add labels
-        self.canvas.create_text(100,40,text="N2")
-        self.canvas.create_text(150,40,text="O2")
-        self.canvas.create_text(50,40,text="N2/H2")
+        self.canvas.create_text(100,35,text="N2",font=('Calibri', 15))
+        self.canvas.create_text(160,35,text="O2",font=('Calibri', 15))
+        self.canvas.create_text(40,35,text="N2/H2",font=('Calibri', 15))
 
         # MFC & PT Data box templates
         self.mfc_flow = StringVar(value="---")
-        self.canvas.create_rectangle(125,380,200,420,fill='white',outline='black')
-        ttk.Label(self.canvas,textvariable=self.mfc_flow,background='white',font=10).place(x=162.5,y=400,anchor='center')
+        self.canvas.create_rectangle(150,480,225,520,fill='white',outline='black')
+        ttk.Label(self.canvas,textvariable=self.mfc_flow,background='white',font=10).place(x=187.5,y=500,anchor='center')
         
-        self.canvas.create_rectangle(600,380,675,420,fill='white',outline='black')
+        self.canvas.create_rectangle(775,480,850,520,fill='white',outline='black')
         
         
-        self.canvas.create_image(400,430,image=self.tube_img,anchor='center')
+        self.canvas.create_image(500,545,image=self.tube_img,anchor='center')
 
         ### Gas Control layout
         gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=300)
