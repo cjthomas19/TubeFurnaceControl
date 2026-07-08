@@ -420,11 +420,21 @@ class GasPanel(ttk.Frame):
         self.mfc_flow = StringVar(value="---")
         self.canvas.create_rectangle(150,480,225,520,fill='white',outline='black')
         ttk.Label(self.canvas,textvariable=self.mfc_flow,background='white',font=10).place(x=187.5,y=500,anchor='center')
-        
+
+        self.tube_pressure = StringVar(value="---")
         self.canvas.create_rectangle(775,480,850,520,fill='white',outline='black')
-        
+        ttk.Label(self.canvas,textvariable=self.tube_pressure,background='white',font=10).place(x=812.5,y=500,anchor='center')
         
         self.canvas.create_image(500,545,image=self.tube_img,anchor='center')
+        self.t1_str = StringVar(value="---")
+        self.t2_str = StringVar(value="---")
+        self.t3_str = StringVar(value="---")
+
+        ttk.Label(self.canvas,textvariable=self.t1_str,background='white',font=10).place(x=499,y=629,anchor='center')
+        ttk.Label(self.canvas,textvariable=self.t2_str,background='white',font=10).place(x=411,y=629,anchor='center')
+        ttk.Label(self.canvas,textvariable=self.t3_str,background='white',font=10).place(x=587,y=629,anchor='center')
+
+
 
         ### Gas Control layout
         gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=300)
