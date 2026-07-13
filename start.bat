@@ -1,1 +1,2 @@
-python Application/main.py
+cd Application
+python main.py
