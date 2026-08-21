@@ -435,10 +435,12 @@ class GasPanel(ttk.Frame):
         ttk.Label(self.canvas,textvariable=self.t3_str,background='white',font=10).place(x=587,y=629,anchor='center')
 
 
-
         ### Gas Control layout
         gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=300)
         gpanel.grid_propagate(0)
+
+        # Store controls for enabling & disabling
+        self.controls = []
 
         # Register validation function with tkinter frame
         self.flowSet = DoubleVar(value=0.0)
@@ -454,17 +456,53 @@ class GasPanel(ttk.Frame):
 
         # Header label above the controls.
         ttk.Label(gpanel, text="Gas Selection:").grid(column=1, row=0, sticky=W, pady=(0,6))
-        ttk.Button(gpanel, text="Nitrogen", command=lambda: self.tube_interface.set_gas(1)).grid(column=1,row=1,sticky=N,columnspan=2)
-        ttk.Button(gpanel, text="Oxygen", command=lambda: self.tube_interface.set_gas(2)).grid(column=1,row=2,sticky=N,columnspan=2)
-        ttk.Button(gpanel, text="Forming Gas", command=lambda: self.tube_interface.set_gas(3)).grid(column=1,row=3,sticky=N,columnspan=2)
+
+        # Add controls
+        n2button = ttk.Button(gpanel, text="Nitrogen", command=lambda: self.tube_interface.set_gas(1))
+        n2button.grid(column=1,row=1,sticky=N,columnspan=2)
+        self.controls.append((
+            n2button,
+            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 1
+        ))
+
+        o2button = ttk.Button(gpanel, text="Oxygen", command=lambda: self.tube_interface.set_gas(2))
+        o2button.grid(column=1,row=2,sticky=N,columnspan=2)
+        self.controls.append((
+            o2button,
+            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 2
+        ))
+        
+        fgbutton = ttk.Button(gpanel, text="Forming Gas", command=lambda: self.tube_interface.set_gas(3))
+        fgbutton.grid(column=1,row=3,sticky=N,columnspan=2)
+        self.controls.append((
+            fgbutton,
+            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 3
+        ))
+        
         ttk.Label(gpanel, text="MFC Setpoint:").grid(column=1, row=4, sticky=W, pady=(20,0))
 
-        ttk.Entry(gpanel,textvariable=self.flowSet,validate='all',width=10,validatecommand=(self.vcmd,'%P'),justify='center').grid(column=1,row=5)
+        mfcentry = ttk.Entry(gpanel,textvariable=self.flowSet,validate='all',width=10,validatecommand=(self.vcmd,'%P'),justify='center')
+        mfcentry.grid(column=1,row=5)
+        self.controls.append((
+            mfcentry,
+            lambda: self.tube_interface.is_connected() 
+        ))
+
         self.flowscale = ttk.Scale(gpanel,variable=self.flowSet,orient=VERTICAL,from_=MAXFLOW,to=0.0,length=50)
         self.flowscale['command'] = lambda val : self.flowSet.set(f'{float(val):.02f}')
         self.flowscale.grid(column=2,row=5,sticky=(W,E),padx=10)
+        self.controls.append((
+            self.flowscale,
+            lambda: self.tube_interface.is_connected()
+        ))
 
-        ttk.Button(gpanel,text="Disable Gases", command=lambda: self.tube_interface.set_gas(0)).grid(column=1,row=6,sticky=N,columnspan=2,pady=20)
+        disablebutton = ttk.Button(gpanel,text="Disable Gases", command=lambda: self.tube_interface.set_gas(0))
+        disablebutton.grid(column=1,row=6,sticky=N,columnspan=2,pady=20)
+        self.controls.append((
+            disablebutton,
+            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 0
+        ))
+        
         self.canvas.create_window(300,175,window=gpanel)
 
         ### Temp Control Layout
@@ -473,30 +511,62 @@ class GasPanel(ttk.Frame):
 
         ttk.Label(tpanel, text = "Stage 1:",justify='center').grid(column=1,row=0,sticky=(W,E),pady=(0,6),columnspan=3)
         ttk.Label(tpanel, text = "SP: ").grid(column=1,row=1,pady=3,padx = 3, sticky=E)
-        ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=1,sticky=W)
+        tempentry = ttk.Entry(tpanel,textvariable=self.tempSet,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center')
+        tempentry.grid(column=2,row=1,sticky=W)
+        self.controls.append((
+            tempentry,
+            lambda: self.tube_interface.is_connected()
+        ))
         ttk.Label(tpanel, text = " °C").grid(column=3,row=1,sticky=W)
 
         ttk.Label(tpanel, text = "Ramp: ").grid(column=1,row=2,sticky=E,pady=6,padx = 3)
-        ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=2,sticky=W)
+        rampentry = ttk.Entry(tpanel,textvariable=self.tRamp,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center')
+        rampentry.grid(column=2,row=2,sticky=W)
+        self.controls.append((
+            rampentry,
+            lambda: self.tube_interface.is_connected()
+        ))
         ttk.Label(tpanel, text = " °C/min").grid(column=3,row=2,sticky=W)
 
         ttk.Label(tpanel, text = "Dwell: ").grid(column=1,row=3,sticky=E,pady=6,padx=3)
-        ttk.Entry(tpanel,textvariable=self.dwell,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=3,sticky=W)
+        dwellentry = ttk.Entry(tpanel,textvariable=self.dwell,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center')
+        dwellentry.grid(column=2,row=3,sticky=W)
+        self.controls.append((
+            dwellentry,
+            lambda: self.tube_interface.is_connected()
+        ))
         ttk.Label(tpanel, text = " min").grid(column=3,row=3,sticky=W)
 
         ttk.Label(tpanel, text = "Stage 2:",justify='center').grid(column=1,row=4,sticky=(N,S,W,E),pady=6)
-        ttk.Checkbutton(tpanel).grid(column=2,row=4,pady=6)
+        
+        self.use_second_step = StringVar(value='0')
+        ttk.Checkbutton(tpanel,variable=self.use_second_step).grid(column=2,row=4,pady=6)
         
         ttk.Label(tpanel, text = "SP: ").grid(column=1,row=5,pady=3,padx = 3, sticky=E)
-        ttk.Entry(tpanel,textvariable=self.tempSet2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=5,sticky=W)
+        tempentry2 = ttk.Entry(tpanel,textvariable=self.tempSet2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center')
+        tempentry2.grid(column=2,row=5,sticky=W)
+        self.controls.append((
+            tempentry2,
+            lambda: self.tube_interface.is_connected() and self.use_second_step.get() == '1'
+        ))
         ttk.Label(tpanel, text = " °C").grid(column=3,row=5,sticky=W)
 
         ttk.Label(tpanel, text = "Ramp: ").grid(column=1,row=6,sticky=E,pady=6,padx = 3)
-        ttk.Entry(tpanel,textvariable=self.tRamp2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=6,sticky=W)
+        rampentry2 = ttk.Entry(tpanel,textvariable=self.tRamp2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center')
+        rampentry2.grid(column=2,row=6,sticky=W)
+        self.controls.append((
+            rampentry2,
+            lambda: self.tube_interface.is_connected() and self.use_second_step.get() == '1'
+        ))
         ttk.Label(tpanel, text = " °C/min").grid(column=3,row=6,sticky=W)
 
         ttk.Label(tpanel, text = "Dwell: ").grid(column=1,row=7,sticky=E,pady=6,padx=3)
-        ttk.Entry(tpanel,textvariable=self.dwell2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center').grid(column=2,row=7,sticky=W)
+        dwellentry2 = ttk.Entry(tpanel,textvariable=self.dwell2,validate='all',validatecommand=(self.vcmd,'%P'),width=6,justify='center')
+        dwellentry2.grid(column=2,row=7,sticky=W)
+        self.controls.append((
+            dwellentry2,
+            lambda: self.tube_interface.is_connected() and self.use_second_step.get() == '1'
+        ))
         ttk.Label(tpanel, text = " min").grid(column=3,row=7,sticky=W)
 
         
@@ -507,15 +577,34 @@ class GasPanel(ttk.Frame):
         ppanel.grid_propagate(0)
 
         ttk.Label(ppanel,text="Process:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
-        ttk.Button(ppanel,text="Start",command=lambda: self.start_recipe).grid(column=1,row=1,sticky=N)
-        ttk.Button(ppanel,text="Stop",command=lambda: print("Placeholder"),state='disabled').grid(column=1,row=2,sticky=N)
-
+        startbutton = ttk.Button(ppanel,text="Start",command=lambda: self.start_recipe)
+        startbutton.grid(column=1,row=1,sticky=N)
+        self.controls.append((
+            startbutton,
+            lambda: self.tube_interface.is_connected()
+        ))
+        stopbutton = ttk.Button(ppanel,text="Stop",command=lambda: print("Placeholder"),state='disabled')
+        stopbutton.grid(column=1,row=2,sticky=N)
+        self.controls.append((
+            stopbutton,
+            lambda: self.tube_interface.is_connected()
+        ))
 
         ttk.Label(ppanel,text="Return all to Idle:").grid(column=1,row=3,sticky=(N,W,E),pady=6)
-        ttk.Button(ppanel,text="Idle",command=lambda: print("Placeholder")).grid(column=1,row=4,sticky=N)
+        idlebutton = ttk.Button(ppanel,text="Idle",command=lambda: print("Placeholder"))
+        idlebutton.grid(column=1,row=4,sticky=N)
+        self.controls.append((
+            idlebutton,
+            lambda: self.tube_interface.is_connected()
+        ))
 
         ttk.Label(ppanel,text="Recipe:").grid(column=1,row=5,sticky=(N,W,E),pady=6)
-        ttk.Button(ppanel,text="Send", command = self.send_recipe).grid(column=1,row=6,sticky=N)
+        sendbutton = ttk.Button(ppanel,text="Send", command = self.send_recipe)
+        sendbutton.grid(column=1,row=6,sticky=N)
+        self.controls.append((
+            sendbutton,
+            lambda: self.tube_interface.is_connected()
+        ))
 
 
         self.canvas.create_window(700,175,window=ppanel)
@@ -574,3 +663,12 @@ class GasPanel(ttk.Frame):
         if self.tube_interface.active_gas != 0:
             for pipe in self.pipes[self.tube_interface.active_gas]:
                 self.canvas.itemconfigure(pipe,width=4,fill='black')
+
+        for entry in self.controls:
+            
+            if entry[1]():
+                if str(entry[0]['state'])=='disabled':
+                    entry[0].configure(state = 'normal')
+            else:
+                if str(entry[0]['state']) != 'disabled':
+                    entry[0].configure(state= 'disabled')

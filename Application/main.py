@@ -1,6 +1,8 @@
 from tkinter import *
 from tkinter import ttk
 
+from PIL import Image, ImageTk
+
 
 import interface
 from modbusutil import ModbusConnector
@@ -22,6 +24,13 @@ s.theme_use("alt")
 mainframe = ttk.Frame(root)
 mainframe.grid(column=0, row=0, sticky = (N,W,E,S))
 
+# Create header with connection status
+header_canvas = Canvas(mainframe,width=1200,height=25,background="#d9d9d9",highlightthickness=0)
+
+header_canvas.create_text(1040,14,text="Connection Status:",anchor='center')
+con_light = header_canvas.create_oval(1100,4,1120,24,fill="#014a2b")
+
+
 # Use a TK notebook to group different interface windows
 tabs = ttk.Notebook(mainframe)
 
@@ -41,17 +50,22 @@ root.rowconfigure(0,weight=1)
 
 mainframe.columnconfigure(3,weight=1)
 
-for child in mainframe.winfo_children():
-    child.grid_configure(padx=5, pady=5)
+header_canvas.grid_configure(pady=(5,0),padx=5)
+tabs.grid_configure(pady=(0,5),padx=5)
+
 
 def update_all():
     tube_interface.update()
     gaspanel.update()
     plotting.update()
     settings.update()
+    if tube_interface.is_connected():
+        header_canvas.itemconfigure(con_light,fill="#00ff37")
+    else:
+        header_canvas.itemconfigure(con_light,fill="#014a2b")
     root.after(UPDATE_RATE,update_all)
 
-root.after(UPDATE_RATE,update_all)
+update_all()
                         
 # Handle window close
 def on_close():
