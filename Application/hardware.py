@@ -41,9 +41,9 @@ class TubeInterface:
             "FLOW_SV" : Register(28696, 0, "Mass Flow Set",'float'),
             "GAS_SELECT" : Register(1, 0, "Gas Selection",'float'),
             "PRESSURE" : Register(28684, 0, "Pressure",'float'),
-##            "T1_SV" : Register(28674, 0, "Temperature 1 SV"),
-##            "T2_SV" : Register(28678, 0, "Temperature 2 SV"),
-##            "T3_SV" : Register(28682, 0, "Temperature 3 SV")
+            "T1_SV" : Register(10, 0, "Temperature 1 SV",'int'),
+            "T2_SV" : Register(20, 0, "Temperature 2 SV",'int'),
+            "T3_SV" : Register(30, 0, "Temperature 3 SV",'int')
             
         }
 
@@ -83,14 +83,12 @@ class TubeInterface:
         pass
 
     def get_pressure(self, p_id):
-
         pass
 
     def get_gas(self):
         return self.active_gas
 
     def get_mfc_flow(self):
-
         pass
 
     def is_connected(self):
@@ -106,7 +104,7 @@ class TubeInterface:
         elif reg.dtype == 'int':
             reg.value = self.modbusc.get_int(reg.addr)
 
-    def send_recp_params(self, sp, rr, dw, sp2, rr2, dw2):
+    def send_recipe_params(self, sp, rr, dw, sp2, rr2, dw2):
 
         self.modbusc.set_int(100,dw)
         self.modbusc.set_int(101,sp)
@@ -116,6 +114,12 @@ class TubeInterface:
         self.modbusc.set_int(105,rr2)
 
         self.modbusc.set_coil(16384,True)
+
+    def start_recipe(self):
+        self.modbusc.set_coil(16388,True)
+
+    def stop_recipe(self):
+        self.modbusc.set_coil(16392,True)
         
             
     # UPDATE METHOD

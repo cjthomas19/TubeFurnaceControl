@@ -286,7 +286,7 @@ class PlotPage(ttk.Frame):
 
             # Drop oldest reading once we exceed 100 points to keep a rolling window--should we keep a history log?
             # PLACEHOLDER: 100 points = ~50s at 500ms poll rate.
-            if len(self.y_data[name]) > 100:  
+            if len(self.y_data[name]) > 1000:  
                 self.y_data[name].pop(0)
 
             # Only update the line if this register's checkbox is ticked.
@@ -350,7 +350,7 @@ class GasPanel(ttk.Frame):
         self.tube_img = ImageTk.PhotoImage(Image.open("tubedwg.png").resize((500,300),resample=Image.Resampling.HAMMING))
 
         # Prepare canvas
-        self.canvas = Canvas(self,width=1200,height=750,background="#d9d9d9",highlightthickness=0)
+        self.canvas = Canvas(self,width=1200,height=700,background="#d9d9d9",highlightthickness=0)
         self.canvas.grid(column=1,row=1,columnspan=4)
 
         # Store pipes for specific valve states
@@ -507,7 +507,7 @@ class GasPanel(ttk.Frame):
         ppanel.grid_propagate(0)
 
         ttk.Label(ppanel,text="Process:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
-        ttk.Button(ppanel,text="Start",command=lambda: print("Placeholder")).grid(column=1,row=1,sticky=N)
+        ttk.Button(ppanel,text="Start",command=lambda: self.start_recipe).grid(column=1,row=1,sticky=N)
         ttk.Button(ppanel,text="Stop",command=lambda: print("Placeholder"),state='disabled').grid(column=1,row=2,sticky=N)
 
 
@@ -524,7 +524,19 @@ class GasPanel(ttk.Frame):
 
         if self.tube_interface.is_connected():
 
-            self.tube_interface.send_recp_params(self.tempSet.get(), self.tRamp.get(), self.dwell.get(), self.tempSet2.get(), self.tRamp2.get(), self.dwell2.get())
+            self.tube_interface.send_recipe_params(self.tempSet.get(), self.tRamp.get(), self.dwell.get(), self.tempSet2.get(), self.tRamp2.get(), self.dwell2.get())
+            
+    def start_recipe(self):
+
+        if self.tube_interface.is_connected():
+
+            self.tube_interface.start_recipe()
+
+    def stop_recipe(self):
+
+        if self.tube_interface.is_connected():
+
+            self.tube_interface.stop_recipe()
         
     def update(self):
 
