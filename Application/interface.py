@@ -577,13 +577,13 @@ class GasPanel(ttk.Frame):
         ppanel.grid_propagate(0)
 
         ttk.Label(ppanel,text="Process:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
-        startbutton = ttk.Button(ppanel,text="Start",command=lambda: self.start_recipe)
+        startbutton = ttk.Button(ppanel,text="Start",command=self.start_recipe)
         startbutton.grid(column=1,row=1,sticky=N)
         self.controls.append((
             startbutton,
             lambda: self.tube_interface.is_connected()
         ))
-        stopbutton = ttk.Button(ppanel,text="Stop",command=lambda: print("Placeholder"),state='disabled')
+        stopbutton = ttk.Button(ppanel,text="Stop",command=self.stop_recipe,state='disabled')
         stopbutton.grid(column=1,row=2,sticky=N)
         self.controls.append((
             stopbutton,
@@ -631,6 +631,9 @@ class GasPanel(ttk.Frame):
 
         if self.tube_interface.is_connected():
             self.mfc_flow.set('{0:.2f}'.format(self.tube_interface.get_value("FLOW_PV")))
+            self.t1_str.set(self.tube_interface.get_value("T1_PV"))
+            self.t2_str.set(self.tube_interface.get_value("T2_PV"))
+            self.t3_str.set(self.tube_interface.get_value("T3_PV"))
         
             self.tube_interface.set_mfc_flow(self.flowSet.get())
 
