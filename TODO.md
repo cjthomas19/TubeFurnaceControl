@@ -12,3 +12,9 @@
 - [ ] Add settings including max temp, max rate of change, number format, end mode, etc.
 - [ ] Add display for tube mode (run or stop)
 - [ ] Give second stage temp controls default values
+- [ ] Add horizontal scroll bar for partially minimized window navigation
+
+      
+- [ ] On furnace, change integer output to include decimals
+- [ ] PID tuning?
+
