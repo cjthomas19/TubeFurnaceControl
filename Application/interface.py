@@ -12,6 +12,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from modbusutil import ModbusConnector
 from hardware import TubeInterface
 
+import csv
+from tkinter import filedialog
+
 
 MAXFLOW = 5.0
 INITFLOW = 1.0
@@ -131,6 +134,18 @@ class PlotPage(ttk.Frame):
         # Will store the time logging started, used to calculate elapsed time.
         self._start_time = None
 
+        # Stores one elapsed-time value per poll cycle, parallel to y_data.
+        self.timestamps = []
+        # How many most-recent points to draw on the live plot. y_data itself
+        # is never trimmed (needed for full-history CSV export); only the
+        # plotted line is windowed to this many points.
+        self.PLOT_WINDOW = 1000
+        
+        # Path to write autosave snapshots to, chosen once when logging starts.
+        self.autosave_path = None
+        # Holds the id returned by self.after() so autosave can be cancelled on stop.
+        self._autosave_job = None
+
         # One True/False variable per register, linked to each checkbox.
         # First 3 (the temperature channels) start ticked, flow rates start unticked.
         self.enabled = {name: BooleanVar(value=(i < 3))
@@ -183,11 +198,33 @@ class PlotPage(ttk.Frame):
         ttk.Button(left, text="Clear Data", command=self._clear).grid(
             column=1, row=len(self._REGISTERS)*2+7, columnspan=2, sticky=(W,E), pady=2)
 
+        # Dividing line between logging buttons and save/autosave controls.
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self._REGISTERS)*2+8, columnspan=2, sticky=(W,E), pady=8)
+
+        # Manual save button is always available, prompts for a file location.
+        ttk.Button(left, text="Save to CSV", command=self._save_csv).grid(
+            column=1, row=len(self._REGISTERS)*2+9, columnspan=2, sticky=(W,E), pady=2)
+
+        # Autosave checkbox.
+        self.autosave_enabled = BooleanVar(value=False)
+        ttk.Checkbutton(left, text="Autosave every", variable=self.autosave_enabled).grid(
+            column=1, row=len(self._REGISTERS)*2+10, columnspan=2, sticky=W, pady=(8,2))
+
+        # Interval entry + "minutes" label, displayed side by side in their own sub-frame.
+        autosave_frame = ttk.Frame(left)
+        autosave_frame.grid(column=1, row=len(self._REGISTERS)*2+11, columnspan=2, sticky=W, pady=(0,8))
+
+        self.autosave_interval = IntVar(value=5)
+        vcmd_int = self.register(self._validate_interval)
+        ttk.Entry(autosave_frame, textvariable=self.autosave_interval, width=5,
+                  justify='center', validate='all', validatecommand=(vcmd_int, '%P')).grid(column=1, row=0)
+        ttk.Label(autosave_frame, text="minutes").grid(column=2, row=0, padx=(4,0))
+
         # Status text at the bottom of the left panel, updates automatically when set() is called.
         self.status_var = StringVar(value="Not logging")
         ttk.Label(left, textvariable=self.status_var).grid(
-            column=1, row=len(self._REGISTERS)*2+8, columnspan=2, sticky=W, pady=(8,0))
-
+            column=1, row=len(self._REGISTERS)*2+12, columnspan=2, sticky=W, pady=(8,0))
+        
         # Create the matplotlib figure, grey background matches the rest of the app.
         self.fig = Figure(figsize=(7,5))
         self.fig.set_facecolor("#d9d9d9")
@@ -219,6 +256,10 @@ class PlotPage(ttk.Frame):
         self.columnconfigure(2, weight=1)
         self.rowconfigure(1, weight=1)
 
+    def _validate_interval(self, P):
+        # Only allow digits (whole minutes) or an empty field while typing.
+        return P.isdigit() or P == ""
+
     def _refresh_lines(self):
         # Called when any checkbox is clicked, shows or hides each line accordingly.
         for name, line in self.lines.items():
@@ -229,8 +270,25 @@ class PlotPage(ttk.Frame):
         # Refuse to start if not connected to the furnace 
         # (also, widget currently stops responding if this occurs).
         if self.tube_interface is None or not self.tube_interface.is_connected():
-            self.status_var.set("Not connected — go to Settings first")
+            self.status_var.set("Not connected; go to Settings first")
             return
+
+        # If autosave is ticked, ask where to save before logging begins,
+        # so it doesn't prompt mid-run. Cancel start if user backs out.
+        if self.autosave_enabled.get():
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                initialfile=time.strftime("tube_log_%Y%m%d_%H%M%S.csv"),
+                title="Choose autosave location"
+            )
+            if not filepath:
+                self.status_var.set("Autosave cancelled. logging not started")
+                return
+            self.autosave_path = filepath
+        else:
+            self.autosave_path = None
+
         self._logging = True
         self._start_time = time.time()
         # Grey out Start, enable Stop.
@@ -240,6 +298,11 @@ class PlotPage(ttk.Frame):
         # Begin the polling loop.
         self._poll()
 
+        # Begin the autosave timer if enabled.
+        if self.autosave_enabled.get():
+            interval_ms = max(self.autosave_interval.get(), 1) * 60 * 1000
+            self._autosave_job = self.after(interval_ms, self._autosave_tick)
+
     def _stop(self):
         # Setting _logging to False causes _poll to exit on its next run.
         self._logging = False
@@ -248,10 +311,16 @@ class PlotPage(ttk.Frame):
         self.stop_btn.config(state=DISABLED)
         self.status_var.set("Stopped")
 
+        # Cancel any pending autosave tick so it doesn't run after stopping.
+        if self._autosave_job is not None:
+            self.after_cancel(self._autosave_job)
+            self._autosave_job = None
+
     def _clear(self):
         # Wipe all stored data lists.
         for lst in self.y_data.values():
             lst.clear()
+        self.timestamps.clear()
         # Reset all plot lines to empty.
         for line in self.lines.values():
             line.set_data([], [])
@@ -275,6 +344,7 @@ class PlotPage(ttk.Frame):
 
         # Calculate seconds elapsed since logging started.
         elapsed = time.time() - self._start_time
+        self.timestamps.append(elapsed)
 
         for name, key in self._REGISTERS.items():
             
@@ -284,23 +354,71 @@ class PlotPage(ttk.Frame):
             # Update the live label, formatted to 2 decimal places (will update if equipment accuracy is better).
             self.live_labels[name].config(text=f"{val:.2f}")
 
-            # Drop oldest reading once we exceed 100 points to keep a rolling window--should we keep a history log?
-            # PLACEHOLDER: 100 points = ~50s at 500ms poll rate.
-            if len(self.y_data[name]) > 1000:  
-                self.y_data[name].pop(0)
-
             # Only update the line if this register's checkbox is ticked.
+            # Full history stays in self.y_data (used for CSV export); only the
+            # most recent PLOT_WINDOW points are drawn on the live graph.
             if self.enabled[name].get():
-                self.lines[name].set_data(range(len(self.y_data[name])), self.y_data[name])
+                windowed = self.y_data[name][-self.PLOT_WINDOW:]
+                start = len(self.y_data[name]) - len(windowed)
+                self.lines[name].set_data(range(start, start + len(windowed)), windowed)
 
         # Rescale axes to fit new data and redraw.
         self.ax.relim()
         self.ax.autoscale_view()
         self.canvas.draw_idle()
-        self.status_var.set(f"Logging — {elapsed:.0f}s elapsed")
+        self.status_var.set(f"Logging: {elapsed:.0f}s elapsed")
 
     def update(self):
         self._poll()
+        
+    def _save_csv(self, path=None, silent=False):
+        # Writes all recorded data to CSV. If path is None, prompts the user;
+        # silent=True suppresses  "no data" message and uses status update
+        # (used by the autosave timer so as to not interrupt manual saves).
+        if not self.timestamps:
+            if not silent:
+                self.status_var.set("No data to save")
+            return
+
+        filepath = path
+        if filepath is None:
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                initialfile=time.strftime("tube_log_%Y%m%d_%H%M%S.csv")
+            )
+            if not filepath:
+                return  # user cancelled
+
+        names = list(self._REGISTERS.keys())
+
+        try:
+            with open(filepath, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Elapsed (s)"] + names)
+                for i, t in enumerate(self.timestamps):
+                    row = [f"{t:.2f}"]
+                    for name in names:
+                        vals = self.y_data[name]
+                        row.append(vals[i] if i < len(vals) else "")
+                    writer.writerow(row)
+            if silent:
+                self.status_var.set(f"Autosaved: {time.strftime('%H:%M:%S')}")
+            else:
+                self.status_var.set(f"Saved to {filepath.split('/')[-1]}")
+        except Exception as e:
+            self.status_var.set(f"Save failed: {e}")
+
+    def _autosave_tick(self):
+        # Runs every N minutes while logging is active and autosave is enabled.
+        if not self._logging:
+            return
+        if self.autosave_enabled.get() and self.autosave_path:
+            self._save_csv(path=self.autosave_path, silent=True)
+
+        interval_ms = max(self.autosave_interval.get(), 1) * 60 * 1000
+        self._autosave_job = self.after(interval_ms, self._autosave_tick)
+
 
 # Class to control gas panel items - valve states, selected gas, and MFC flows
 
@@ -430,8 +548,8 @@ class GasPanel(ttk.Frame):
         self.t2_str = StringVar(value="---")
         self.t3_str = StringVar(value="---")
 
-        ttk.Label(self.canvas,textvariable=self.t2_str,background='white',font=10).place(x=499,y=629,anchor='center')
-        ttk.Label(self.canvas,textvariable=self.t1_str,background='white',font=10).place(x=411,y=629,anchor='center')
+        ttk.Label(self.canvas,textvariable=self.t1_str,background='white',font=10).place(x=499,y=629,anchor='center')
+        ttk.Label(self.canvas,textvariable=self.t2_str,background='white',font=10).place(x=411,y=629,anchor='center')
         ttk.Label(self.canvas,textvariable=self.t3_str,background='white',font=10).place(x=587,y=629,anchor='center')
 
 
