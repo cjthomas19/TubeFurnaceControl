@@ -430,8 +430,8 @@ class GasPanel(ttk.Frame):
         self.t2_str = StringVar(value="---")
         self.t3_str = StringVar(value="---")
 
-        ttk.Label(self.canvas,textvariable=self.t1_str,background='white',font=10).place(x=499,y=629,anchor='center')
-        ttk.Label(self.canvas,textvariable=self.t2_str,background='white',font=10).place(x=411,y=629,anchor='center')
+        ttk.Label(self.canvas,textvariable=self.t2_str,background='white',font=10).place(x=499,y=629,anchor='center')
+        ttk.Label(self.canvas,textvariable=self.t1_str,background='white',font=10).place(x=411,y=629,anchor='center')
         ttk.Label(self.canvas,textvariable=self.t3_str,background='white',font=10).place(x=587,y=629,anchor='center')
 
 

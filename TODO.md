@@ -1,5 +1,6 @@
 - [x] Add functional "Run" button and modify PLC code to respond
 - [x] Add indicators and grayed-out controls to show connection status
+- [x] Add stop code to PLC
 - [ ] Better organize tracked variables
 - [ ] Make PLC communicate with each controller separately when setting recipe parameters (instead of broadcasting)
 - [ ] Add maximum temperature deviation protection in PLC program
@@ -8,3 +9,6 @@
 - [ ] Better error handling on PLC side (monitor connection to MFC/tube for interruptions)
 - [ ] Add logging functionality
 - [ ] Remove GUI code from 'main.py' and move into separate file
+- [ ] Add settings including max temp, max rate of change, number format, end mode, etc.
+- [ ] Add display for tube mode (run or stop)
+- [ ] Give second stage temp controls default values
