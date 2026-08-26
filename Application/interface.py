@@ -19,6 +19,44 @@ from tkinter import filedialog
 MAXFLOW = 5.0
 INITFLOW = 1.0
 
+def add_horizontal_scroll(container):
+    """
+    Should wrap all content of `container` (a ttk.Frame/page) in a horizontally
+    scrollable canvas and return an inner frame grid all of the page's
+    widgets onto that inner frame instead of `container` directly.
+
+    If left as self, the widget gets placed directly on the page, outside 
+    the scrollable canvas, and the scrollbar will have no effect on it so
+    it will still get clipped when the window shrinks.    
+    
+    The scrollbar is always present but only does something once the
+    page's content is wider than the visible window (e.g. when the
+    window is partially minimized to fit multiple tabs side by side).
+    """
+    container.rowconfigure(0, weight=1)
+    container.columnconfigure(0, weight=1)
+
+    canvas = Canvas(container, highlightthickness=0, background="#d9d9d9")
+    hbar = ttk.Scrollbar(container, orient=HORIZONTAL, command=canvas.xview)
+    canvas.configure(xscrollcommand=hbar.set)
+
+    canvas.grid(column=0, row=0, sticky=(N,S,E,W))
+    hbar.grid(column=0, row=1, sticky=(W,E))
+
+    inner = ttk.Frame(canvas)
+    inner_id = canvas.create_window((0,0), window=inner, anchor='nw')
+
+    def _update_scrollregion(event=None):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+    inner.bind("<Configure>", _update_scrollregion)
+
+    def _match_height(event):
+        # keep inner frame's height matched to the visible canvas area
+        canvas.itemconfigure(inner_id, height=event.height)
+    canvas.bind("<Configure>", _match_height)
+
+    return inner
+
 # Class for settings page
 
 class SettingsPage(ttk.Frame):
@@ -42,8 +80,10 @@ class SettingsPage(ttk.Frame):
         self.flowcontrol=StringVar()
         self.terminationchar=StringVar()
 
+        self.inner = add_horizontal_scroll(self)
+
         ## Communications Settings
-        companel = ttk.LabelFrame(self,text="Communications",width=250,height=300)
+        companel = ttk.LabelFrame(self.inner,text="Communications",width=250,height=300)
         companel.grid(row=0,column=1)
         companel.grid_propagate(0)
 
@@ -76,7 +116,7 @@ class SettingsPage(ttk.Frame):
         ttk.Label(companel,textvariable=self.status_var).grid(column=1,row=7,pady=12,columnspan=2)
 
         ## Hardware Settings
-        hpanel = ttk.LabelFrame(self,text="Hardware",width=250,height=300)
+        hpanel = ttk.LabelFrame(self.inner,text="Hardware",width=250,height=300)
         hpanel.grid(row=0,column=2)
         hpanel.grid_propagate(0)
 
