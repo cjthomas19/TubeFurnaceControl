@@ -192,8 +192,10 @@ class PlotPage(ttk.Frame):
                         for i, name in enumerate(self._REGISTERS)}
         
 
+        self.inner = add_horizontal_scroll(self)
+
         # Left panel box with border and title "Variables".
-        left = ttk.LabelFrame(self, text="Variables", padding=(8,4))
+        left = ttk.LabelFrame(self.inner, text="Variables", padding=(8,4))
         left.grid(column=1, row=1, sticky=(N,S), padx=(0,10), pady=4)
 
         # Header label above the checkboxes.
@@ -289,12 +291,12 @@ class PlotPage(ttk.Frame):
         self.ax.legend(loc="upper left", fontsize=7)
 
         # Convert matplotlib figure into a tkinter widget and place it on the right side.
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.inner)
         self.canvas.get_tk_widget().grid(column=2, row=1, sticky=(N,S,E,W))
 
         # Make the plot expand to fill the window when resized.
-        self.columnconfigure(2, weight=1)
-        self.rowconfigure(1, weight=1)
+        self.inner.columnconfigure(2, weight=1)
+        self.inner.rowconfigure(1, weight=1)
 
     def _validate_interval(self, P):
         # Only allow digits (whole minutes) or an empty field while typing.
@@ -507,9 +509,23 @@ class GasPanel(ttk.Frame):
         # Rescale tube image using HAMMING filter (5) for sharper image
         self.tube_img = ImageTk.PhotoImage(Image.open("tubedwg.png").resize((500,300),resample=Image.Resampling.HAMMING))
 
+        # Container frame holds the canvas + horizontal scrollbar, so the
+        # canvas can be scrolled when the window is narrower than 1200px
+        # (e.g. when partially minimized to fit multiple tabs side by side).
+        canvas_frame = ttk.Frame(self)
+        canvas_frame.grid(column=1,row=1,columnspan=4,sticky=(N,S,E,W))
+        canvas_frame.rowconfigure(0, weight=1)
+        canvas_frame.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.columnconfigure(1, weight=1)
+
         # Prepare canvas
-        self.canvas = Canvas(self,width=1200,height=700,background="#d9d9d9",highlightthickness=0)
-        self.canvas.grid(column=1,row=1,columnspan=4)
+        self.canvas = Canvas(canvas_frame,width=1200,height=700,background="#d9d9d9",highlightthickness=0)
+        self.canvas.grid(column=0,row=0,sticky=(N,S,E,W))
+
+        self.hbar = ttk.Scrollbar(canvas_frame, orient=HORIZONTAL, command=self.canvas.xview)
+        self.hbar.grid(column=0,row=1,sticky=(W,E))
+        self.canvas.configure(xscrollcommand=self.hbar.set)
 
         # Store pipes for specific valve states
         self.pipes = [[],[],[],[]]
@@ -767,6 +783,11 @@ class GasPanel(ttk.Frame):
 
         self.canvas.create_window(700,175,window=ppanel)
 
+        # Must run last, after every item/window has been drawn on the
+        # canvas, so bbox("all") covers the full extent of the diagram.
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    
     def send_recipe(self):
 
         if self.tube_interface.is_connected():
