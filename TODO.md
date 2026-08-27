@@ -1,6 +1,7 @@
 - [x] Add functional "Run" button and modify PLC code to respond
 - [x] Add indicators and grayed-out controls to show connection status
 - [x] Add stop code to PLC
+- [x] Add horizontal scroll bar for partially minimized window navigation
 - [ ] Better organize tracked variables
 - [ ] Make PLC communicate with each controller separately when setting recipe parameters (instead of broadcasting)
 - [ ] Add maximum temperature deviation protection in PLC program
@@ -12,7 +13,6 @@
 - [ ] Add settings including max temp, max rate of change, number format, end mode, etc.
 - [ ] Add display for tube mode (run or stop)
 - [ ] Give second stage temp controls default values
-- [ ] Add horizontal scroll bar for partially minimized window navigation
 
       
 - [ ] On furnace, change integer output to include decimals
