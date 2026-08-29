@@ -48,10 +48,11 @@ tabs.add(settings,text="Settings")
 root.columnconfigure(0,weight=1)
 root.rowconfigure(0,weight=1)
 
-mainframe.columnconfigure(3,weight=1)
+mainframe.columnconfigure(0, weight=1)
+mainframe.rowconfigure(1, weight=1)
 
-header_canvas.grid_configure(pady=(5,0),padx=5)
-tabs.grid_configure(pady=(0,5),padx=5)
+header_canvas.grid(row=0, column=0, sticky=(W,E), pady=(5,0), padx=5)
+tabs.grid(row=1, column=0, sticky=(N,S,E,W), pady=(0,5), padx=5)
 
 
 def update_all():
