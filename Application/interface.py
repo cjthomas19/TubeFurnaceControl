@@ -61,6 +61,11 @@ def add_scrollbars(container):
     canvas.bind("<Enter>", _bind_wheel)
     canvas.bind("<Leave>", _unbind_wheel)
 
+    # Exposed so callers can force a scrollregion refresh after dynamically
+    # showing/hiding content (e.g. toggling an extra graph on) rather than
+    # relying on the <Configure> event to catch up.
+    inner.scroll_canvas = canvas
+
     return inner
 
 # Class for settings page
@@ -318,35 +323,53 @@ class PlotPage(ttk.Frame):
         ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=8)
         row += 1
 
-        # Extra graph toggle
-        self.multi_graph_enabled = BooleanVar(value=False)
-        ttk.Checkbutton(left, text="Show extra graph", variable=self.multi_graph_enabled,
-                        command=self._toggle_multi_graph).grid(column=1, row=row, columnspan=2, sticky=W, pady=(0,4))
-        row += 1
-
+        # Extra graph toggles: 3 additional graphs arranged around the
+        # main plot (bottom-left, top-right, bottom-right), each with its
+        # own on/off checkbox and independently chosen X/Y axes.
         axis_choices = ["Time"] + names
-        self.extra_x_var = StringVar(value="Time")
-        self.extra_y_var = StringVar(value=names[0] if names else "")
+        extra_labels = ["Extra Graph 1 (bottom-left)", "Extra Graph 2 (top-right)", "Extra Graph 3 (bottom-right)"]
+        self.extra_enabled = []
+        self.extra_x_var = []
+        self.extra_y_var = []
 
-        ttk.Label(left, text="X axis:").grid(column=1, row=row, sticky=E)
-        ttk.OptionMenu(left, self.extra_x_var, self.extra_x_var.get(), *axis_choices,
-                       command=lambda _=None: self._refresh_extra_graph()).grid(column=2, row=row, sticky=W)
-        row += 1
-        ttk.Label(left, text="Y axis:").grid(column=1, row=row, sticky=E)
-        ttk.OptionMenu(left, self.extra_y_var, self.extra_y_var.get(), *names,
-                       command=lambda _=None: self._refresh_extra_graph()).grid(column=2, row=row, sticky=W)
-        row += 1
+        for i in range(3):
+            enabled_var = BooleanVar(value=False)
+            x_var = StringVar(value="Time")
+            y_var = StringVar(value=names[0] if names else "")
+            self.extra_enabled.append(enabled_var)
+            self.extra_x_var.append(x_var)
+            self.extra_y_var.append(y_var)
+
+            ttk.Checkbutton(left, text=f"Show {extra_labels[i]}", variable=enabled_var,
+                            command=lambda i=i: self._toggle_extra_graph(i)).grid(
+                column=1, row=row, columnspan=2, sticky=W, pady=(10 if i == 0 else 8, 4))
+            row += 1
+
+            ttk.Label(left, text="X axis:").grid(column=1, row=row, sticky=E)
+            ttk.OptionMenu(left, x_var, x_var.get(), *axis_choices,
+                           command=lambda _=None, i=i: self._refresh_extra_graph(i)).grid(column=2, row=row, sticky=W)
+            row += 1
+            ttk.Label(left, text="Y axis:").grid(column=1, row=row, sticky=E)
+            ttk.OptionMenu(left, y_var, y_var.get(), *names,
+                           command=lambda _=None, i=i: self._refresh_extra_graph(i)).grid(column=2, row=row, sticky=W)
+            row += 1
 
         self.status_var = StringVar(value="Not logging")
         ttk.Label(left, textvariable=self.status_var).grid(column=1, row=row, columnspan=2, sticky=W, pady=(8,0))
 
-        # Graph area (holds the main plot and, optionally, a second one below it)
+        # Graph area: 2x2 grid. Main plot always occupies top-left; the
+        # three extra graphs fill bottom-left, top-right, and bottom-right,
+        # each shown/hidden independently by its checkbox above. The
+        # toolbar (controls the main plot) spans the full width directly
+        # beneath the top row, so it never ends up displaced by whichever
+        # extra graphs happen to be toggled on.
         self.graph_container = ttk.Frame(self.inner)
         self.graph_container.grid(column=2, row=1, sticky=(N,S,E,W))
         self.graph_container.columnconfigure(0, weight=1)
+        self.graph_container.columnconfigure(1, weight=1)
         self.graph_container.rowconfigure(0, weight=3)
-        self.graph_container.rowconfigure(1, weight=2)
-        self.graph_container.rowconfigure(2, weight=0)
+        self.graph_container.rowconfigure(1, weight=0)
+        self.graph_container.rowconfigure(2, weight=2)
 
         self.fig = Figure(figsize=(7,5))
         self.fig.set_facecolor("#d9d9d9")
@@ -371,12 +394,12 @@ class PlotPage(ttk.Frame):
         self._toolbar_nav_active = False
 
         toolbar_frame = ttk.Frame(self.graph_container)
-        toolbar_frame.grid(column=0, row=2, sticky=(W,E))
+        toolbar_frame.grid(column=0, row=1, columnspan=2, sticky=(W,E))
         self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame, pack_toolbar=False)
         self.toolbar.pack(side=LEFT)
         self.toolbar.update()
 
-        # Wrap the toolbar's pan/zoom button handlers so it is known when either
+        # Wrap the toolbar's pan/zoom button handlers so we know when either
         # tool is toggled on, without needing to poll button state each frame.
         _orig_pan = self.toolbar.pan
         _orig_zoom = self.toolbar.zoom
@@ -392,13 +415,29 @@ class PlotPage(ttk.Frame):
         self.toolbar.pan = _tracked_pan
         self.toolbar.zoom = _tracked_zoom
 
-        # Second graph; created up front but only grid()'d when toggled on
-        self.fig2 = Figure(figsize=(7,3))
-        self.fig2.set_facecolor("#d9d9d9")
-        self.ax2 = self.fig2.add_subplot(111)
-        self.fig2.subplots_adjust(left=0.15)
-        self.line2, = self.ax2.plot([], [], linewidth=1.5, color='tab:orange')
-        self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.graph_container)
+        # Three extra graphs — created up front but only grid()'d in when
+        # toggled on. Index 0 = bottom-left (this is the one that already
+        # existed), 1 = top-right (new), 2 = bottom-right (new).
+        self._extra_grid_kwargs = [
+            dict(column=0, row=2, sticky=(N,S,E,W), pady=(8,0)),
+            dict(column=1, row=0, sticky=(N,S,E,W), padx=(8,0)),
+            dict(column=1, row=2, sticky=(N,S,E,W), padx=(8,0), pady=(8,0)),
+        ]
+        self.extra_figs = []
+        self.extra_axes = []
+        self.extra_lines = []
+        self.extra_canvases = []
+        for i in range(3):
+            fig = Figure(figsize=(7,3))
+            fig.set_facecolor("#d9d9d9")
+            ax = fig.add_subplot(111)
+            fig.subplots_adjust(left=0.15)
+            line, = ax.plot([], [], linewidth=1.5, color='tab:orange')
+            canvas = FigureCanvasTkAgg(fig, master=self.graph_container)
+            self.extra_figs.append(fig)
+            self.extra_axes.append(ax)
+            self.extra_lines.append(line)
+            self.extra_canvases.append(canvas)
 
         self.inner.columnconfigure(2, weight=1)
         self.inner.rowconfigure(1, weight=1)
@@ -463,26 +502,32 @@ class PlotPage(ttk.Frame):
         self.ymax.set(f"{ymax + pad:.3f}")
         self._apply_axis_limits()
 
-    def _toggle_multi_graph(self):
-        if self.multi_graph_enabled.get():
-            self.canvas2.get_tk_widget().grid(column=0, row=1, sticky=(N,S,E,W), pady=(8,0))
-            self._refresh_extra_graph()
+    def _toggle_extra_graph(self, i):
+        if self.extra_enabled[i].get():
+            self.extra_canvases[i].get_tk_widget().grid(**self._extra_grid_kwargs[i])
+            self._refresh_extra_graph(i)
         else:
-            self.canvas2.get_tk_widget().grid_forget()
+            self.extra_canvases[i].get_tk_widget().grid_forget()
 
-    def _refresh_extra_graph(self):
-        if not self.multi_graph_enabled.get():
+        # Force the scrollregion to recompute right away, so a newly shown
+        # graph can never end up cut off at the bottom with no way to
+        # scroll down and reach it.
+        self.update_idletasks()
+        self.inner.scroll_canvas.configure(scrollregion=self.inner.scroll_canvas.bbox("all"))
+
+    def _refresh_extra_graph(self, i):
+        if not self.extra_enabled[i].get():
             return
-        xchoice, ychoice = self.extra_x_var.get(), self.extra_y_var.get()
+        xchoice, ychoice = self.extra_x_var[i].get(), self.extra_y_var[i].get()
         ydata = self.y_data.get(ychoice, [])
         xdata = self.timestamps if xchoice == "Time" else self.y_data.get(xchoice, [])
         n = min(len(xdata), len(ydata))
-        self.line2.set_data(xdata[:n], ydata[:n])
-        self.ax2.set_xlabel(xchoice)
-        self.ax2.set_ylabel(ychoice)
-        self.ax2.relim()
-        self.ax2.autoscale_view()
-        self.canvas2.draw_idle()
+        self.extra_lines[i].set_data(xdata[:n], ydata[:n])
+        self.extra_axes[i].set_xlabel(xchoice)
+        self.extra_axes[i].set_ylabel(ychoice)
+        self.extra_axes[i].relim()
+        self.extra_axes[i].autoscale_view()
+        self.extra_canvases[i].draw_idle()
     
     def _start(self):
         # Refuse to start if not connected to the furnace 
@@ -545,11 +590,13 @@ class PlotPage(ttk.Frame):
         # Reset all live value labels back to "--".
         for lbl in self.live_labels.values():
             lbl.config(text="--")
-        self.line2.set_data([], [])
+        for line in self.extra_lines:
+            line.set_data([], [])
         self.ax.relim()
-        self.ax2.relim()
         self.canvas.draw_idle()
-        self.canvas2.draw_idle()
+        for ax, canvas in zip(self.extra_axes, self.extra_canvases):
+            ax.relim()
+            canvas.draw_idle()
         self.status_var.set("Data cleared")
 
     def _poll(self):
@@ -590,7 +637,8 @@ class PlotPage(ttk.Frame):
             if self.autoscale_y.get():
                 self.ax.autoscale_view(scalex=False, scaley=True)
         self.canvas.draw_idle()
-        self._refresh_extra_graph()
+        for i in range(3):
+            self._refresh_extra_graph(i)
         self.status_var.set(f"Logging: {elapsed:.0f}s elapsed")
 
     def update(self):
@@ -779,21 +827,25 @@ class GasPanel(ttk.Frame):
         # MFC & PT Data box templates
         self.mfc_flow = StringVar(value="---")
         self.canvas.create_rectangle(150,480,225,520,fill='white',outline='black')
-        ttk.Label(self.canvas,textvariable=self.mfc_flow,background='white',font=10).place(x=187.5,y=500,anchor='center')
+        self.canvas.create_window(187.5,500,window=ttk.Label(
+            self.canvas,textvariable=self.mfc_flow,background='white',font=('Calibri',10)))
 
         self.tube_pressure = StringVar(value="---")
         self.canvas.create_rectangle(775,480,850,520,fill='white',outline='black')
-        ttk.Label(self.canvas,textvariable=self.tube_pressure,background='white',font=10).place(x=812.5,y=500,anchor='center')
+        self.canvas.create_window(812.5,500,window=ttk.Label(
+            self.canvas,textvariable=self.tube_pressure,background='white',font=('Calibri',10)))
         
         self.canvas.create_image(500,545,image=self.tube_img,anchor='center')
         self.t1_str = StringVar(value="---")
         self.t2_str = StringVar(value="---")
         self.t3_str = StringVar(value="---")
 
-        ttk.Label(self.canvas,textvariable=self.t1_str,background='white',font=10).place(x=499,y=629,anchor='center')
-        ttk.Label(self.canvas,textvariable=self.t2_str,background='white',font=10).place(x=411,y=629,anchor='center')
-        ttk.Label(self.canvas,textvariable=self.t3_str,background='white',font=10).place(x=587,y=629,anchor='center')
-
+        self.canvas.create_window(499,629,window=ttk.Label(
+            self.canvas,textvariable=self.t1_str,background='white',font=('Calibri',10)))
+        self.canvas.create_window(411,629,window=ttk.Label(
+            self.canvas,textvariable=self.t2_str,background='white',font=('Calibri',10)))
+        self.canvas.create_window(587,629,window=ttk.Label(
+            self.canvas,textvariable=self.t3_str,background='white',font=('Calibri',10)))
 
         ### Gas Control layout
         gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=300)
