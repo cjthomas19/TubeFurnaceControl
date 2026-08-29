@@ -7,7 +7,7 @@ import time
 import math
 
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 from modbusutil import ModbusConnector
 from hardware import TubeInterface
@@ -19,28 +19,30 @@ from tkinter import filedialog
 MAXFLOW = 5.0
 INITFLOW = 1.0
 
-def add_horizontal_scroll(container):
+def add_scrollbars(container):
     """
-    Should wrap all content of `container` (a ttk.Frame/page) in a horizontally
-    scrollable canvas and return an inner frame grid all of the page's
-    widgets onto that inner frame instead of `container` directly.
+    Wraps all content of `container` (a ttk.Frame/page) in both a
+    horizontally and vertically scrollable canvas, and returns an inner
+    frame to grid all of the page's widgets onto instead of `container`
+    directly.
 
-    If left as self, the widget gets placed directly on the page, outside 
-    the scrollable canvas, and the scrollbar will have no effect on it so
-    it will still get clipped when the window shrinks.    
-    
-    The scrollbar is always present but only does something once the
-    page's content is wider than the visible window (e.g. when the
-    window is partially minimized to fit multiple tabs side by side).
+    When left as self, the widget was being placed directly on the page, outside
+    the scrollable canvas, and the scrollbars had no effect on it so
+    it still got clipped when the window shrunk.
+
+    Both scrollbars are always present but only do something once the
+    page's content is wider/taller than the visible window.
     """
     container.rowconfigure(0, weight=1)
     container.columnconfigure(0, weight=1)
 
     canvas = Canvas(container, highlightthickness=0, background="#d9d9d9")
     hbar = ttk.Scrollbar(container, orient=HORIZONTAL, command=canvas.xview)
-    canvas.configure(xscrollcommand=hbar.set)
+    vbar = ttk.Scrollbar(container, orient=VERTICAL, command=canvas.yview)
+    canvas.configure(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
 
     canvas.grid(column=0, row=0, sticky=(N,S,E,W))
+    vbar.grid(column=1, row=0, sticky=(N,S))
     hbar.grid(column=0, row=1, sticky=(W,E))
 
     inner = ttk.Frame(canvas)
@@ -50,10 +52,14 @@ def add_horizontal_scroll(container):
         canvas.configure(scrollregion=canvas.bbox("all"))
     inner.bind("<Configure>", _update_scrollregion)
 
-    def _match_height(event):
-        # keep inner frame's height matched to the visible canvas area
-        canvas.itemconfigure(inner_id, height=event.height)
-    canvas.bind("<Configure>", _match_height)
+    def _on_mousewheel(event):
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    def _bind_wheel(event):
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    def _unbind_wheel(event):
+        canvas.unbind_all("<MouseWheel>")
+    canvas.bind("<Enter>", _bind_wheel)
+    canvas.bind("<Leave>", _unbind_wheel)
 
     return inner
 
@@ -65,7 +71,7 @@ class SettingsPage(ttk.Frame):
 
     def __init__(self,parent,tube_interface):
 
-        # Run parent frame setup before adding our own content
+        # Run parent frame setup before adding our own content.
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
 
         self.ports = ModbusConnector.get_serial_ports()
@@ -80,8 +86,8 @@ class SettingsPage(ttk.Frame):
         self.flowcontrol=StringVar()
         self.terminationchar=StringVar()
 
-        self.inner = add_horizontal_scroll(self)
-
+        self.inner = add_scrollbars(self)
+        
         ## Communications Settings
         companel = ttk.LabelFrame(self.inner,text="Communications",width=250,height=300)
         companel.grid(row=0,column=1)
@@ -160,26 +166,22 @@ class PlotPage(ttk.Frame):
         # Run parent frame setup before adding our own content.
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
 
-        # Save reference to tube interface for later use
+        # Save reference to tube interface for later use.
         self.tube_interface = tube_interface
 
-        # Get values to plot from hardware list of registers
+        # Get values to plot from hardware list of registers.
         self._REGISTERS = dict(zip(self.tube_interface.get_register_names(),self.tube_interface.get_register_keys()))
         
         # Each register gets empty list to store its readings over time.
         self.y_data = {name: [] for name in self._REGISTERS}
 
-        # Track whether we are currently logging (True) or not (False).        
+        # Track whether currently logging (True) or not (False).        
         self._logging = False
         # Will store the time logging started, used to calculate elapsed time.
         self._start_time = None
 
         # Stores one elapsed-time value per poll cycle, parallel to y_data.
         self.timestamps = []
-        # How many most-recent points to draw on the live plot. y_data itself
-        # is never trimmed (needed for full-history CSV export); only the
-        # plotted line is windowed to this many points.
-        self.PLOT_WINDOW = 1000
         
         # Path to write autosave snapshots to, chosen once when logging starts.
         self.autosave_path = None
@@ -192,69 +194,72 @@ class PlotPage(ttk.Frame):
                         for i, name in enumerate(self._REGISTERS)}
         
 
-        self.inner = add_horizontal_scroll(self)
-
+        self.inner = add_scrollbars(self)
+        
         # Left panel box with border and title "Variables".
         left = ttk.LabelFrame(self.inner, text="Variables", padding=(8,4))
         left.grid(column=1, row=1, sticky=(N,S), padx=(0,10), pady=4)
 
-        # Header label above the checkboxes.
-        ttk.Label(left, text="Check to plot:").grid(column=1, row=0, sticky=W, pady=(0,6))
+        names = list(self._REGISTERS.keys())
+        row = 0
 
+        ttk.Label(left, text="Check to plot:").grid(column=1, row=row, columnspan=2, sticky=W, pady=(0,6))
+        row += 1
 
-        # Create one checkbox per register, each linked to its True/False variable.
-        # row=i+1 places each checkbox one row below the previous one.
-        for i, name in enumerate(self._REGISTERS):
-            ttk.Checkbutton(left, text=name, variable=self.enabled[name],
-                            command=self._refresh_lines).grid(column=1, row=i+1, sticky=W, pady=2)
+        # Two-column grid of checkboxes, packed into its own sub-frame so it
+        # only uses ONE row in `left`'s grid.
+        checkbox_frame = ttk.Frame(left)
+        checkbox_frame.grid(column=1, row=row, columnspan=2, sticky=W)
+        for i, name in enumerate(names):
+            c, r = i % 2, i // 2
+            ttk.Checkbutton(checkbox_frame, text=name, variable=self.enabled[name],
+                            command=self._refresh_lines).grid(column=c, row=r, sticky=W, padx=(0,12), pady=2)
+        row += 1
 
-        # Dividing line between checkboxes and live values.
-        # Row offsets are computed from len(self.REGISTERS) so adding/removing
-        # registers automatically shifts everything below without manual renumbering.
-        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self._REGISTERS)+1, sticky=(W,E), pady=8)
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=8)
+        row += 1
 
-        # Header label above the live value readouts.
-        ttk.Label(left, text="Live values:").grid(column=1, row=len(self._REGISTERS)+2, sticky=W, pady=(0,4))
+        ttk.Label(left, text="Live values:").grid(column=1, row=row, columnspan=2, sticky=W, pady=(0,4))
+        row += 1
 
-        # Create two labels per register: name on left, current value on right.
-        # self.live_labels saves the value labels so _poll can update them later.
         self.live_labels = {}
-        for i, name in enumerate(self._REGISTERS):
-            ttk.Label(left, text=name+":").grid(column=1, row=len(self._REGISTERS)+3+i, sticky=W, pady=1)
+        for name in names:
+            ttk.Label(left, text=name+":").grid(column=1, row=row, sticky=W, pady=1)
             lbl = ttk.Label(left, text="--", width=8, anchor="e")
-            lbl.grid(column=2, row=len(self._REGISTERS)+3+i, sticky=E, pady=1)
+            lbl.grid(column=2, row=row, sticky=E, pady=1)
             self.live_labels[name] = lbl
+            row += 1
 
-        # Dividing line between live values and buttons.
-        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self._REGISTERS)*2+4, columnspan=2, sticky=(W,E), pady=8)
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=8)
+        row += 1
 
-        # Start button saved to self so it can be greyed out when logging starts.
         self.start_btn = ttk.Button(left, text="Start Logging", command=self._start)
-        self.start_btn.grid(column=1, row=len(self._REGISTERS)*2+5, columnspan=2, sticky=(W,E), pady=2)
+        self.start_btn.grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=2)
+        row += 1
 
-        # Stop button starts greyed out, only enabled once logging has started.
         self.stop_btn = ttk.Button(left, text="Stop Logging", command=self._stop, state=DISABLED)
-        self.stop_btn.grid(column=1, row=len(self._REGISTERS)*2+6, columnspan=2, sticky=(W,E), pady=2)
+        self.stop_btn.grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=2)
+        row += 1
 
-        # Clear button always active, not saved to self as it never needs to be greyed out.
         ttk.Button(left, text="Clear Data", command=self._clear).grid(
-            column=1, row=len(self._REGISTERS)*2+7, columnspan=2, sticky=(W,E), pady=2)
+            column=1, row=row, columnspan=2, sticky=(W,E), pady=2)
+        row += 1
 
-        # Dividing line between logging buttons and save/autosave controls.
-        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=len(self._REGISTERS)*2+8, columnspan=2, sticky=(W,E), pady=8)
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=8)
+        row += 1
 
-        # Manual save button is always available, prompts for a file location.
         ttk.Button(left, text="Save to CSV", command=self._save_csv).grid(
-            column=1, row=len(self._REGISTERS)*2+9, columnspan=2, sticky=(W,E), pady=2)
+            column=1, row=row, columnspan=2, sticky=(W,E), pady=2)
+        row += 1
 
-        # Autosave checkbox.
         self.autosave_enabled = BooleanVar(value=False)
         ttk.Checkbutton(left, text="Autosave every", variable=self.autosave_enabled).grid(
-            column=1, row=len(self._REGISTERS)*2+10, columnspan=2, sticky=W, pady=(8,2))
+            column=1, row=row, columnspan=2, sticky=W, pady=(8,2))
+        row += 1
 
-        # Interval entry + "minutes" label, displayed side by side in their own sub-frame.
         autosave_frame = ttk.Frame(left)
-        autosave_frame.grid(column=1, row=len(self._REGISTERS)*2+11, columnspan=2, sticky=W, pady=(0,8))
+        autosave_frame.grid(column=1, row=row, columnspan=2, sticky=W, pady=(0,8))
+        row += 1
 
         self.autosave_interval = IntVar(value=5)
         vcmd_int = self.register(self._validate_interval)
@@ -262,39 +267,139 @@ class PlotPage(ttk.Frame):
                   justify='center', validate='all', validatecommand=(vcmd_int, '%P')).grid(column=1, row=0)
         ttk.Label(autosave_frame, text="minutes").grid(column=2, row=0, padx=(4,0))
 
-        # Status text at the bottom of the left panel, updates automatically when set() is called.
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=8)
+        row += 1
+
+        # Rescale controls 
+        ttk.Label(left, text="Rescale Graph:").grid(column=1, row=row, columnspan=2, sticky=W, pady=(0,4))
+        row += 1
+
+        vcmd_float = self.register(self._validate_float)
+        self.autoscale_x = BooleanVar(value=True)
+        self.autoscale_y = BooleanVar(value=True)
+        self.xmin, self.xmax = StringVar(), StringVar()
+        self.ymin, self.ymax = StringVar(), StringVar()
+
+        ttk.Checkbutton(left, text="Auto X", variable=self.autoscale_x,
+                        command=self._apply_axis_limits).grid(column=1, row=row, columnspan=2, sticky=W)
+        row += 1
+        ttk.Label(left, text="X min:").grid(column=1, row=row, sticky=E)
+        ttk.Entry(left, textvariable=self.xmin, width=8, validate='all',
+                  validatecommand=(vcmd_float, '%P'), justify='center').grid(column=2, row=row, sticky=W)
+        row += 1
+        ttk.Label(left, text="X max:").grid(column=1, row=row, sticky=E)
+        ttk.Entry(left, textvariable=self.xmax, width=8, validate='all',
+                  validatecommand=(vcmd_float, '%P'), justify='center').grid(column=2, row=row, sticky=W)
+        row += 1
+
+        ttk.Checkbutton(left, text="Auto Y", variable=self.autoscale_y,
+                        command=self._apply_axis_limits).grid(column=1, row=row, columnspan=2, sticky=W, pady=(6,0))
+        row += 1
+        ttk.Label(left, text="Y min:").grid(column=1, row=row, sticky=E)
+        ttk.Entry(left, textvariable=self.ymin, width=8, validate='all',
+                  validatecommand=(vcmd_float, '%P'), justify='center').grid(column=2, row=row, sticky=W)
+        row += 1
+        ttk.Label(left, text="Y max:").grid(column=1, row=row, sticky=E)
+        ttk.Entry(left, textvariable=self.ymax, width=8, validate='all',
+                  validatecommand=(vcmd_float, '%P'), justify='center').grid(column=2, row=row, sticky=W)
+        row += 1
+
+        ttk.Button(left, text="Apply", command=self._apply_axis_limits).grid(
+            column=1, row=row, columnspan=2, sticky=(W,E), pady=(4,8))
+        row += 1
+
+        ttk.Label(left, text="Fit Y to line:").grid(column=1, row=row, columnspan=2, sticky=W)
+        row += 1
+        self.fit_target = StringVar(value=names[0] if names else "")
+        ttk.OptionMenu(left, self.fit_target, self.fit_target.get(), *names).grid(column=1, row=row, sticky=W)
+        ttk.Button(left, text="Fit", command=self._fit_to_line).grid(column=2, row=row, sticky=W)
+        row += 1
+
+        ttk.Separator(left, orient=HORIZONTAL).grid(column=1, row=row, columnspan=2, sticky=(W,E), pady=8)
+        row += 1
+
+        # Extra graph toggle
+        self.multi_graph_enabled = BooleanVar(value=False)
+        ttk.Checkbutton(left, text="Show extra graph", variable=self.multi_graph_enabled,
+                        command=self._toggle_multi_graph).grid(column=1, row=row, columnspan=2, sticky=W, pady=(0,4))
+        row += 1
+
+        axis_choices = ["Time"] + names
+        self.extra_x_var = StringVar(value="Time")
+        self.extra_y_var = StringVar(value=names[0] if names else "")
+
+        ttk.Label(left, text="X axis:").grid(column=1, row=row, sticky=E)
+        ttk.OptionMenu(left, self.extra_x_var, self.extra_x_var.get(), *axis_choices,
+                       command=lambda _=None: self._refresh_extra_graph()).grid(column=2, row=row, sticky=W)
+        row += 1
+        ttk.Label(left, text="Y axis:").grid(column=1, row=row, sticky=E)
+        ttk.OptionMenu(left, self.extra_y_var, self.extra_y_var.get(), *names,
+                       command=lambda _=None: self._refresh_extra_graph()).grid(column=2, row=row, sticky=W)
+        row += 1
+
         self.status_var = StringVar(value="Not logging")
-        ttk.Label(left, textvariable=self.status_var).grid(
-            column=1, row=len(self._REGISTERS)*2+12, columnspan=2, sticky=W, pady=(8,0))
-        
-        # Create the matplotlib figure, grey background matches the rest of the app.
+        ttk.Label(left, textvariable=self.status_var).grid(column=1, row=row, columnspan=2, sticky=W, pady=(8,0))
+
+        # Graph area (holds the main plot and, optionally, a second one below it)
+        self.graph_container = ttk.Frame(self.inner)
+        self.graph_container.grid(column=2, row=1, sticky=(N,S,E,W))
+        self.graph_container.columnconfigure(0, weight=1)
+        self.graph_container.rowconfigure(0, weight=3)
+        self.graph_container.rowconfigure(1, weight=2)
+        self.graph_container.rowconfigure(2, weight=0)
+
         self.fig = Figure(figsize=(7,5))
         self.fig.set_facecolor("#d9d9d9")
-        
-        # Add the graph area inside the figure.       
         self.ax = self.fig.add_subplot(111)
         self.ax.set_xlabel("Samples")
         self.ax.set_ylabel("Value")
         self.ax.set_title("Live Sensor Data")
-        # Dashed grid lines at 50% transparency.
-        #self.ax.grid(True, linestyle="--", alpha=0.5)
-        # Prevent axis labels from being cut off at the edges.      
         self.fig.subplots_adjust(left=0.15)
 
-        # Create one empty line per register, saved so _poll can update their data later.
         self.lines = {}
-        for name in self._REGISTERS:
+        for name in names:
             line, = self.ax.plot([], [], label=name, linewidth=1.5)
             self.lines[name] = line
-
-        # Legend identifying which line is which, small font to avoid blocking the plot.
         self.ax.legend(loc="upper left", fontsize=7)
 
-        # Convert matplotlib figure into a tkinter widget and place it on the right side.
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.inner)
-        self.canvas.get_tk_widget().grid(column=2, row=1, sticky=(N,S,E,W))
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.graph_container)
+        self.canvas.get_tk_widget().grid(column=0, row=0, sticky=(N,S,E,W))
 
-        # Make the plot expand to fill the window when resized.
+        # True while the toolbar's pan or zoom tool is active, so _poll and
+        # _apply_axis_limits know to leave the axes alone rather than fight
+        # the user's manual view with autoscale/manual limits every second.
+        self._toolbar_nav_active = False
+
+        toolbar_frame = ttk.Frame(self.graph_container)
+        toolbar_frame.grid(column=0, row=2, sticky=(W,E))
+        self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame, pack_toolbar=False)
+        self.toolbar.pack(side=LEFT)
+        self.toolbar.update()
+
+        # Wrap the toolbar's pan/zoom button handlers so it is known when either
+        # tool is toggled on, without needing to poll button state each frame.
+        _orig_pan = self.toolbar.pan
+        _orig_zoom = self.toolbar.zoom
+
+        def _tracked_pan(*args):
+            _orig_pan(*args)
+            self._toolbar_nav_active = self.toolbar.mode.name == "PAN"
+
+        def _tracked_zoom(*args):
+            _orig_zoom(*args)
+            self._toolbar_nav_active = self.toolbar.mode.name == "ZOOM"
+
+        self.toolbar.pan = _tracked_pan
+        self.toolbar.zoom = _tracked_zoom
+
+        # Second graph; created up front but only grid()'d when toggled on
+        self.fig2 = Figure(figsize=(7,3))
+        self.fig2.set_facecolor("#d9d9d9")
+        self.ax2 = self.fig2.add_subplot(111)
+        self.fig2.subplots_adjust(left=0.15)
+        self.line2, = self.ax2.plot([], [], linewidth=1.5, color='tab:orange')
+        self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self.graph_container)
+
         self.inner.columnconfigure(2, weight=1)
         self.inner.rowconfigure(1, weight=1)
 
@@ -308,6 +413,77 @@ class PlotPage(ttk.Frame):
             line.set_visible(self.enabled[name].get())
         self.canvas.draw_idle()
 
+    def _validate_float(self, P):
+        if P in ("", "-", "."):
+            return True
+        try:
+            float(P)
+            return True
+        except ValueError:
+            return False
+
+    def _apply_axis_limits(self):
+        # Turn off the toolbar's pan/zoom tool if it's on, since the user will
+        # be taking manual control of the view via these fields.
+        # Re-invoking whichever tool is currently active toggles it off the
+        # same way clicking its button would, keeping the button's pressed
+        # state and internal mode synced.
+        if self._toolbar_nav_active:
+            if self.toolbar.mode.name == "PAN":
+                self.toolbar.pan()
+            elif self.toolbar.mode.name == "ZOOM":
+                self.toolbar.zoom()
+
+        if self.autoscale_x.get():
+            self.ax.autoscale(axis='x')
+        else:
+            try:
+                self.ax.set_xlim(float(self.xmin.get()), float(self.xmax.get()))
+            except ValueError:
+                pass
+
+        if self.autoscale_y.get():
+            self.ax.autoscale(axis='y')
+        else:
+            try:
+                self.ax.set_ylim(float(self.ymin.get()), float(self.ymax.get()))
+            except ValueError:
+                pass
+
+        self.canvas.draw_idle()
+
+    def _fit_to_line(self):
+        data = self.y_data.get(self.fit_target.get(), [])
+        if not data:
+            return
+        ymin, ymax = min(data), max(data)
+        pad = (ymax - ymin) * 0.05 or 0.5
+        self.autoscale_y.set(False)
+        self.ymin.set(f"{ymin - pad:.3f}")
+        self.ymax.set(f"{ymax + pad:.3f}")
+        self._apply_axis_limits()
+
+    def _toggle_multi_graph(self):
+        if self.multi_graph_enabled.get():
+            self.canvas2.get_tk_widget().grid(column=0, row=1, sticky=(N,S,E,W), pady=(8,0))
+            self._refresh_extra_graph()
+        else:
+            self.canvas2.get_tk_widget().grid_forget()
+
+    def _refresh_extra_graph(self):
+        if not self.multi_graph_enabled.get():
+            return
+        xchoice, ychoice = self.extra_x_var.get(), self.extra_y_var.get()
+        ydata = self.y_data.get(ychoice, [])
+        xdata = self.timestamps if xchoice == "Time" else self.y_data.get(xchoice, [])
+        n = min(len(xdata), len(ydata))
+        self.line2.set_data(xdata[:n], ydata[:n])
+        self.ax2.set_xlabel(xchoice)
+        self.ax2.set_ylabel(ychoice)
+        self.ax2.relim()
+        self.ax2.autoscale_view()
+        self.canvas2.draw_idle()
+    
     def _start(self):
         # Refuse to start if not connected to the furnace 
         # (also, widget currently stops responding if this occurs).
@@ -369,9 +545,11 @@ class PlotPage(ttk.Frame):
         # Reset all live value labels back to "--".
         for lbl in self.live_labels.values():
             lbl.config(text="--")
-        # Reset axis limits and redraw.
+        self.line2.set_data([], [])
         self.ax.relim()
+        self.ax2.relim()
         self.canvas.draw_idle()
+        self.canvas2.draw_idle()
         self.status_var.set("Data cleared")
 
     def _poll(self):
@@ -397,17 +575,22 @@ class PlotPage(ttk.Frame):
             self.live_labels[name].config(text=f"{val:.2f}")
 
             # Only update the line if this register's checkbox is ticked.
-            # Full history stays in self.y_data (used for CSV export); only the
-            # most recent PLOT_WINDOW points are drawn on the live graph.
+            # Full history is always plotted; zoom/pan via the axis controls
+            # below to view earlier data instead of it being discarded.
             if self.enabled[name].get():
-                windowed = self.y_data[name][-self.PLOT_WINDOW:]
-                start = len(self.y_data[name]) - len(windowed)
-                self.lines[name].set_data(range(start, start + len(windowed)), windowed)
+                data = self.y_data[name]
+                self.lines[name].set_data(range(len(data)), data)
 
-        # Rescale axes to fit new data and redraw.
-        self.ax.relim()
-        self.ax.autoscale_view()
+        # Only autoscale the axes the user hasn't pinned to manual limits,
+        # and never fight the toolbar's pan/zoom tool while it's active.
+        if not self._toolbar_nav_active:
+            self.ax.relim()
+            if self.autoscale_x.get():
+                self.ax.autoscale_view(scalex=True, scaley=False)
+            if self.autoscale_y.get():
+                self.ax.autoscale_view(scalex=False, scaley=True)
         self.canvas.draw_idle()
+        self._refresh_extra_graph()
         self.status_var.set(f"Logging: {elapsed:.0f}s elapsed")
 
     def update(self):
@@ -415,7 +598,7 @@ class PlotPage(ttk.Frame):
         
     def _save_csv(self, path=None, silent=False):
         # Writes all recorded data to CSV. If path is None, prompts the user;
-        # silent=True suppresses  "no data" message and uses status update
+        # silent=True suppresses "no data" message and uses status update
         # (used by the autosave timer so as to not interrupt manual saves).
         if not self.timestamps:
             if not silent:
@@ -462,7 +645,7 @@ class PlotPage(ttk.Frame):
         self._autosave_job = self.after(interval_ms, self._autosave_tick)
 
 
-# Class to control gas panel items - valve states, selected gas, and MFC flows
+# Class to control gas panel items: valve states, selected gas, and MFC flows
 
 class GasPanel(ttk.Frame):
 
@@ -474,7 +657,7 @@ class GasPanel(ttk.Frame):
         vert[0] = (vert[0][0] * math.cos(rot) + vert[0][1] * math.sin(rot), vert[0][0] * -math.sin(rot) + vert[0][1] * math.cos(rot))
         vert[1] = (vert[1][0] * math.cos(rot) + vert[1][1] * math.sin(rot), vert[1][0] * -math.sin(rot) + vert[1][1] * math.cos(rot))
 
-        # Create a list of polygons (triangles) making up the valve and return
+        # Create a list of polygons (triangles) making up the valve and return.
         poly_list = []
         poly_list.append(self.canvas.create_polygon(x,y,x+vert[0][0],y+vert[0][1],x+vert[1][0],y+vert[1][1],fill='white',outline='black'))
         poly_list.append(self.canvas.create_polygon(x,y,x-vert[0][0],y-vert[0][1],x-vert[1][0],y-vert[1][1],fill='white',outline='black'))
@@ -503,10 +686,10 @@ class GasPanel(ttk.Frame):
         # Run parent frame setup before adding our own content.
         ttk.Frame.__init__(self,parent,padding=(3,12,12,12))
 
-        # Store reference to tube interface for later use
+        # Store reference to tube interface for later use.
         self.tube_interface = tube_interface
 
-        # Rescale tube image using HAMMING filter (5) for sharper image
+        # Rescale tube image using HAMMING filter (5) for sharper image.
         self.tube_img = ImageTk.PhotoImage(Image.open("tubedwg.png").resize((500,300),resample=Image.Resampling.HAMMING))
 
         # Container frame holds the canvas + horizontal scrollbar, so the
@@ -523,9 +706,12 @@ class GasPanel(ttk.Frame):
         self.canvas = Canvas(canvas_frame,width=1200,height=700,background="#d9d9d9",highlightthickness=0)
         self.canvas.grid(column=0,row=0,sticky=(N,S,E,W))
 
+        self.vbar = ttk.Scrollbar(canvas_frame, orient=VERTICAL, command=self.canvas.yview)
+        self.vbar.grid(column=1,row=0,sticky=(N,S))
+
         self.hbar = ttk.Scrollbar(canvas_frame, orient=HORIZONTAL, command=self.canvas.xview)
         self.hbar.grid(column=0,row=1,sticky=(W,E))
-        self.canvas.configure(xscrollcommand=self.hbar.set)
+        self.canvas.configure(xscrollcommand=self.hbar.set, yscrollcommand=self.vbar.set)        
 
         # Store pipes for specific valve states
         self.pipes = [[],[],[],[]]
