@@ -52,12 +52,60 @@ def add_scrollbars(container):
         canvas.configure(scrollregion=canvas.bbox("all"))
     inner.bind("<Configure>", _update_scrollregion)
 
-    def _on_mousewheel(event):
-        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    def _scroll_step(delta):
+        # Windows evidently reports delta in multiples of 120, while
+        # macOS trackpads report small raw values (e.g., +-1..3). Normalize
+        # both so scrolling will actually do something on both platforms.
+        if abs(delta) >= 120:
+            return int(-delta / 120)
+        return -1 if delta > 0 else 1
+
+    def _on_mousewheel_y(event):
+        canvas.yview_scroll(_scroll_step(event.delta), "units")
+    def _on_mousewheel_x(event):
+        canvas.xview_scroll(_scroll_step(event.delta), "units")
+    def _on_button4(event):
+        canvas.yview_scroll(-1, "units")
+    def _on_button5(event):
+        canvas.yview_scroll(1, "units")
+    def _on_shift_button4(event):
+        canvas.xview_scroll(-1, "units")
+    def _on_shift_button5(event):
+        canvas.xview_scroll(1, "units")
+
+    def _on_arrow_key(event):
+        # Don't overrun arrow-key cursor movement while typing in a field.
+        if isinstance(event.widget, (Entry, ttk.Entry, Text, Spinbox)):
+            return
+        step = {"Up": (0,-1), "Down": (0,1), "Left": (-1,0), "Right": (1,0),
+                "Prior": (0,-1), "Next": (0,1)}.get(event.keysym)
+        if step is None:
+            return
+        dx, dy = step
+        unit = "pages" if event.keysym in ("Prior", "Next") else "units"
+        if dx:
+            canvas.xview_scroll(dx, unit)
+        if dy:
+            canvas.yview_scroll(dy, unit)
+
+    _wheel_bindings = {
+        "<MouseWheel>": _on_mousewheel_y,
+        "<Shift-MouseWheel>": _on_mousewheel_x,
+        "<Button-4>": _on_button4,
+        "<Button-5>": _on_button5,
+        "<Shift-Button-4>": _on_shift_button4,
+        "<Shift-Button-5>": _on_shift_button5,
+        "<Up>": _on_arrow_key, "<Down>": _on_arrow_key,
+        "<Left>": _on_arrow_key, "<Right>": _on_arrow_key,
+        "<Prior>": _on_arrow_key, "<Next>": _on_arrow_key,
+    }
+
     def _bind_wheel(event):
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        for seq, handler in _wheel_bindings.items():
+            canvas.bind_all(seq, handler)
     def _unbind_wheel(event):
-        canvas.unbind_all("<MouseWheel>")
+        for seq in _wheel_bindings:
+            canvas.unbind_all(seq)
     canvas.bind("<Enter>", _bind_wheel)
     canvas.bind("<Leave>", _unbind_wheel)
 
@@ -357,20 +405,19 @@ class PlotPage(ttk.Frame):
         self.status_var = StringVar(value="Not logging")
         ttk.Label(left, textvariable=self.status_var).grid(column=1, row=row, columnspan=2, sticky=W, pady=(8,0))
 
-        # Graph area: 2x2 grid. Main plot always occupies top-left; the
-        # three extra graphs fill bottom-left, top-right, and bottom-right,
-        # each shown/hidden independently by its checkbox above. The
-        # toolbar (controls the main plot) spans the full width directly
-        # beneath the top row, so it never ends up displaced by whichever
-        # extra graphs happen to be toggled on.
+        # Graph area with two columns: Left column = main plot + its own
+        # toolbar. Right column = Single figure containing all 3 extra graphs
+        # as stacked subplots (instead of 3 separate Figures), plus a
+        # single shared toolbar where dragging pan/zoom in any one of the 3
+        # subplots affects only that subplot (standard matplotlib toolbar).
         self.graph_container = ttk.Frame(self.inner)
         self.graph_container.grid(column=2, row=1, sticky=(N,S,E,W))
         self.graph_container.columnconfigure(0, weight=1)
         self.graph_container.columnconfigure(1, weight=1)
-        self.graph_container.rowconfigure(0, weight=3)
+        self.graph_container.rowconfigure(0, weight=1)
         self.graph_container.rowconfigure(1, weight=0)
-        self.graph_container.rowconfigure(2, weight=2)
 
+        # Main plot (left column)
         self.fig = Figure(figsize=(7,5))
         self.fig.set_facecolor("#d9d9d9")
         self.ax = self.fig.add_subplot(111)
@@ -388,19 +435,17 @@ class PlotPage(ttk.Frame):
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.graph_container)
         self.canvas.get_tk_widget().grid(column=0, row=0, sticky=(N,S,E,W))
 
-        # True while the toolbar's pan or zoom tool is active, so _poll and
-        # _apply_axis_limits know to leave the axes alone rather than fight
-        # the user's manual view with autoscale/manual limits every second.
+        # True while the main toolbar's pan or zoom tool is active, so
+        # _poll and _apply_axis_limits know to leave the axes alone rather
+        # than fight the user's manual view with autoscale every second.
         self._toolbar_nav_active = False
 
         toolbar_frame = ttk.Frame(self.graph_container)
-        toolbar_frame.grid(column=0, row=1, columnspan=2, sticky=(W,E))
+        toolbar_frame.grid(column=0, row=1, sticky=(W,E))
         self.toolbar = NavigationToolbar2Tk(self.canvas, toolbar_frame, pack_toolbar=False)
         self.toolbar.pack(side=LEFT)
         self.toolbar.update()
 
-        # Wrap the toolbar's pan/zoom button handlers so we know when either
-        # tool is toggled on, without needing to poll button state each frame.
         _orig_pan = self.toolbar.pan
         _orig_zoom = self.toolbar.zoom
 
@@ -415,29 +460,50 @@ class PlotPage(ttk.Frame):
         self.toolbar.pan = _tracked_pan
         self.toolbar.zoom = _tracked_zoom
 
-        # Three extra graphs — created up front but only grid()'d in when
-        # toggled on. Index 0 = bottom-left (this is the one that already
-        # existed), 1 = top-right (new), 2 = bottom-right (new).
-        self._extra_grid_kwargs = [
-            dict(column=0, row=2, sticky=(N,S,E,W), pady=(8,0)),
-            dict(column=1, row=0, sticky=(N,S,E,W), padx=(8,0)),
-            dict(column=1, row=2, sticky=(N,S,E,W), padx=(8,0), pady=(8,0)),
-        ]
-        self.extra_figs = []
+        # Extra graphs (right column): one figure, three stacked
+        # subplots. `hspace` sets the vertical gap between them, which is
+        # the wspace/hspace parameter from before, actually in use
+        # since these are subplots of a single Figure.
+        self.extras_fig = Figure(figsize=(7,7))
+        self.extras_fig.set_facecolor("#d9d9d9")
+        self.extras_fig.subplots_adjust(left=0.15, hspace=0.5)
+
+        extra_colors = ['tab:orange', 'tab:green', 'tab:purple']
         self.extra_axes = []
         self.extra_lines = []
-        self.extra_canvases = []
         for i in range(3):
-            fig = Figure(figsize=(7,3))
-            fig.set_facecolor("#d9d9d9")
-            ax = fig.add_subplot(111)
-            fig.subplots_adjust(left=0.15)
-            line, = ax.plot([], [], linewidth=1.5, color='tab:orange')
-            canvas = FigureCanvasTkAgg(fig, master=self.graph_container)
-            self.extra_figs.append(fig)
+            ax = self.extras_fig.add_subplot(3, 1, i + 1)
+            line, = ax.plot([], [], linewidth=1.5, color=extra_colors[i])
+            ax.set_visible(False)  # hidden until its checkbox is ticked
             self.extra_axes.append(ax)
             self.extra_lines.append(line)
-            self.extra_canvases.append(canvas)
+
+        self.extras_canvas = FigureCanvasTkAgg(self.extras_fig, master=self.graph_container)
+        self.extras_canvas.get_tk_widget().grid(column=1, row=0, sticky=(N,S,E,W), padx=(8,0))
+
+        # Same pan/zoom-vs-autoscale tracking as the main toolbar, but for
+        # whichever of the 3 extra subplots is currently being dragged in.
+        self._extras_toolbar_nav_active = False
+
+        extras_toolbar_frame = ttk.Frame(self.graph_container)
+        extras_toolbar_frame.grid(column=1, row=1, sticky=(W,E), padx=(8,0))
+        self.extras_toolbar = NavigationToolbar2Tk(self.extras_canvas, extras_toolbar_frame, pack_toolbar=False)
+        self.extras_toolbar.pack(side=LEFT)
+        self.extras_toolbar.update()
+
+        _orig_extras_pan = self.extras_toolbar.pan
+        _orig_extras_zoom = self.extras_toolbar.zoom
+
+        def _tracked_extras_pan(*args):
+            _orig_extras_pan(*args)
+            self._extras_toolbar_nav_active = self.extras_toolbar.mode.name == "PAN"
+
+        def _tracked_extras_zoom(*args):
+            _orig_extras_zoom(*args)
+            self._extras_toolbar_nav_active = self.extras_toolbar.mode.name == "ZOOM"
+
+        self.extras_toolbar.pan = _tracked_extras_pan
+        self.extras_toolbar.zoom = _tracked_extras_zoom
 
         self.inner.columnconfigure(2, weight=1)
         self.inner.rowconfigure(1, weight=1)
@@ -503,17 +569,13 @@ class PlotPage(ttk.Frame):
         self._apply_axis_limits()
 
     def _toggle_extra_graph(self, i):
+        # All 3 extra subplots live in one shared figure now, so toggling
+        # just shows/hides that particular subplot rather than adding or
+        # removing a widget from the grid — the layout never changes size.
+        self.extra_axes[i].set_visible(self.extra_enabled[i].get())
         if self.extra_enabled[i].get():
-            self.extra_canvases[i].get_tk_widget().grid(**self._extra_grid_kwargs[i])
             self._refresh_extra_graph(i)
-        else:
-            self.extra_canvases[i].get_tk_widget().grid_forget()
-
-        # Force the scrollregion to recompute right away, so a newly shown
-        # graph can never end up cut off at the bottom with no way to
-        # scroll down and reach it.
-        self.update_idletasks()
-        self.inner.scroll_canvas.configure(scrollregion=self.inner.scroll_canvas.bbox("all"))
+        self.extras_canvas.draw_idle()
 
     def _refresh_extra_graph(self, i):
         if not self.extra_enabled[i].get():
@@ -525,9 +587,10 @@ class PlotPage(ttk.Frame):
         self.extra_lines[i].set_data(xdata[:n], ydata[:n])
         self.extra_axes[i].set_xlabel(xchoice)
         self.extra_axes[i].set_ylabel(ychoice)
-        self.extra_axes[i].relim()
-        self.extra_axes[i].autoscale_view()
-        self.extra_canvases[i].draw_idle()
+        # Don't fight the extras toolbar's pan/zoom tool while it's active.
+        if not self._extras_toolbar_nav_active:
+            self.extra_axes[i].relim()
+            self.extra_axes[i].autoscale_view()
     
     def _start(self):
         # Refuse to start if not connected to the furnace 
@@ -592,11 +655,11 @@ class PlotPage(ttk.Frame):
             lbl.config(text="--")
         for line in self.extra_lines:
             line.set_data([], [])
+        for ax in self.extra_axes:
+            ax.relim()
         self.ax.relim()
         self.canvas.draw_idle()
-        for ax, canvas in zip(self.extra_axes, self.extra_canvases):
-            ax.relim()
-            canvas.draw_idle()
+        self.extras_canvas.draw_idle()
         self.status_var.set("Data cleared")
 
     def _poll(self):
@@ -639,6 +702,7 @@ class PlotPage(ttk.Frame):
         self.canvas.draw_idle()
         for i in range(3):
             self._refresh_extra_graph(i)
+        self.extras_canvas.draw_idle()
         self.status_var.set(f"Logging: {elapsed:.0f}s elapsed")
 
     def update(self):
