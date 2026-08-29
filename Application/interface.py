@@ -372,10 +372,10 @@ class PlotPage(ttk.Frame):
         row += 1
 
         # Extra graph toggles: 3 additional graphs arranged around the
-        # main plot (bottom-left, top-right, bottom-right), each with its
+        # main plot (top-right, center-right, bottom-right), each with its
         # own on/off checkbox and independently chosen X/Y axes.
         axis_choices = ["Time"] + names
-        extra_labels = ["Extra Graph 1 (bottom-left)", "Extra Graph 2 (top-right)", "Extra Graph 3 (bottom-right)"]
+        extra_labels = ["Extra Graph 1 (top-right)", "Extra Graph 2 (center-right)", "Extra Graph 3 (bottom-right)"]
         self.extra_enabled = []
         self.extra_x_var = []
         self.extra_y_var = []
