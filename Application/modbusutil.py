@@ -121,12 +121,12 @@ class ModbusConnector:
 
         resp = self.modbusc.read_holding_registers(register)
         val = ModbusSerialClient.convert_from_registers(resp.registers,ModbusSerialClient.DATATYPE.INT16,word_order="little")
-        return val
+        return int(val)
 
     def get_coil(self,register):
 
-        resp = self.modbusc.read_coils(register,1)
-        return resp
+        resp = self.modbusc.read_coils(register)
+        return resp.bits[0]
 
     def set_float(self, register, value):
 

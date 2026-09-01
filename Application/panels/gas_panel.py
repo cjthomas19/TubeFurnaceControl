@@ -398,7 +398,7 @@ class GasPanel(ttk.Frame):
                 self.canvas.itemconfigure(self.t3_indicator,fill='white')
 
 
-            self.purge_timer.set(self.tube_interface.get_value("PURGE_T") + " / 60 min")
+            self.purge_timer.set(str(self.tube_interface.get_value("PURGE_T")) + " / 60 min")
         
             self.tube_interface.set_mfc_flow(self.flowSet.get())
 
