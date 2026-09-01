@@ -5,7 +5,7 @@
 - [x] Add logging functionality
 - [x] Remove GUI code from 'main.py' and move into separate file
 - [x] Prevent gases from being changed without purge
-- [ ] Display purge status & timer in user interface
+- [x] Display purge status & timer in user interface
 - [ ] Better organize tracked variables
 - [ ] Make PLC communicate with each controller separately when setting recipe parameters (instead of broadcasting)
 - [ ] Add maximum temperature deviation protection in PLC program

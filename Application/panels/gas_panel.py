@@ -13,6 +13,7 @@ INITFLOW = 1.0
 
 class GasPanel(ttk.Frame):
 
+    # UI Functions to create valves, pipes, and pumps
     def create_valve(self,x,y,size,third_port,rot=0):
 
         # Create triangle vertices and rotate by rot:
@@ -41,6 +42,8 @@ class GasPanel(ttk.Frame):
         self.canvas.create_line(x-size/2*math.cos(math.pi/4),y+size/2*math.sin(math.pi/4),x+size/2*math.cos(math.pi/12),y+size/2*math.sin(math.pi/12))
         self.canvas.create_line(x-size/2*math.cos(math.pi/4),y-size/2*math.sin(math.pi/4),x+size/2*math.cos(math.pi/12),y-size/2*math.sin(math.pi/12))
 
+
+    # TODO improve validation function
     def _validateFlow(self,P):
         valid = (P.replace('.','',1).isdigit() or P=="")
         return valid
@@ -55,6 +58,7 @@ class GasPanel(ttk.Frame):
 
         # Rescale tube image using HAMMING filter (5) for sharper image.
         self.tube_img = ImageTk.PhotoImage(Image.open("tubedwg.png").resize((500,300),resample=Image.Resampling.HAMMING))
+        self.lock_img = ImageTk.PhotoImage(Image.open("lock.png").resize((25,25),resample=Image.Resampling.HAMMING))
 
         # Container frame holds the canvas + horizontal scrollbar, so the
         # canvas can be scrolled when the window is narrower than 1200px
@@ -140,6 +144,10 @@ class GasPanel(ttk.Frame):
         self.canvas.create_text(160,35,text="O2",font=('Calibri', 15))
         self.canvas.create_text(40,35,text="N2/H2",font=('Calibri', 15))
 
+        # Add lock symbols
+        self.o2_lock = self.canvas.create_image(125,175, image=self.lock_img, anchor='center')
+        self.fg_lock = self.canvas.create_image(75,275, image=self.lock_img, anchor='center')
+
         # MFC & PT Data box templates
         self.mfc_flow = StringVar(value="---")
         self.canvas.create_rectangle(150,480,225,520,fill='white',outline='black')
@@ -156,6 +164,8 @@ class GasPanel(ttk.Frame):
         self.t2_str = StringVar(value="---")
         self.t3_str = StringVar(value="---")
 
+        self.purge_timer = StringVar(value="-- / 60 min")
+
         self.canvas.create_window(499,629,window=ttk.Label(
             self.canvas,textvariable=self.t1_str,background='white',font=('Calibri',10)))
         self.canvas.create_window(411,629,window=ttk.Label(
@@ -164,7 +174,7 @@ class GasPanel(ttk.Frame):
             self.canvas,textvariable=self.t3_str,background='white',font=('Calibri',10)))
 
         ### Gas Control layout
-        gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=300)
+        gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=350)
         gpanel.grid_propagate(0)
 
         # Store controls for enabling & disabling
@@ -225,16 +235,21 @@ class GasPanel(ttk.Frame):
         ))
 
         disablebutton = ttk.Button(gpanel,text="Disable Gases", command=lambda: self.tube_interface.set_gas(0))
-        disablebutton.grid(column=1,row=6,sticky=N,columnspan=2,pady=20)
+        disablebutton.grid(column=1,row=6,sticky=N,columnspan=2,pady=(20,10))
         self.controls.append((
             disablebutton,
             lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 0
         ))
+
+        ttk.Label(gpanel,text="Purge (> 2 slm N2):").grid(column=1,row=7,pady=10,sticky=W)
+
+        self.purgelabel = ttk.Label(gpanel,textvariable=self.purge_timer)
+        self.purgelabel.grid(column=1,row=8,sticky=N,columnspan=2,pady=(0,20))
         
-        self.canvas.create_window(300,175,window=gpanel)
+        self.canvas.create_window(300,200,window=gpanel)
 
         ### Temp Control Layout
-        tpanel = ttk.LabelFrame(self,text="Temp. Control",padding=(8,4),width=200,height=300)
+        tpanel = ttk.LabelFrame(self,text="Temp. Control",padding=(8,4),width=200,height=350)
         tpanel.grid_propagate(0)
 
         ttk.Label(tpanel, text = "Stage 1:",justify='center').grid(column=1,row=0,sticky=(W,E),pady=(0,6),columnspan=3)
@@ -298,10 +313,10 @@ class GasPanel(ttk.Frame):
         ttk.Label(tpanel, text = " min").grid(column=3,row=7,sticky=W)
 
         
-        self.canvas.create_window(500,175,window=tpanel)
+        self.canvas.create_window(500,200,window=tpanel)
 
         ### Process Control Layout
-        ppanel = ttk.LabelFrame(self,text="Process Control",padding=(8,4),width=200,height=300)
+        ppanel = ttk.LabelFrame(self,text="Process Control",padding=(8,4),width=200,height=350)
         ppanel.grid_propagate(0)
 
         ttk.Label(ppanel,text="Process:").grid(column=1,row=0,sticky=(N,W,E),pady=(0,6))
@@ -335,7 +350,7 @@ class GasPanel(ttk.Frame):
         ))
 
 
-        self.canvas.create_window(700,175,window=ppanel)
+        self.canvas.create_window(700,200,window=ppanel)
 
         # Must run last, after every item/window has been drawn on the
         # canvas, so bbox("all") covers the full extent of the diagram.
@@ -345,19 +360,16 @@ class GasPanel(ttk.Frame):
     def send_recipe(self):
 
         if self.tube_interface.is_connected():
-
             self.tube_interface.send_recipe_params(self.tempSet.get(), self.tRamp.get(), self.dwell.get(), self.tempSet2.get(), self.tRamp2.get(), self.dwell2.get())
             
     def start_recipe(self):
 
         if self.tube_interface.is_connected():
-
             self.tube_interface.start_recipe()
 
     def stop_recipe(self):
 
         if self.tube_interface.is_connected():
-
             self.tube_interface.stop_recipe()
         
     def update(self):
@@ -367,6 +379,8 @@ class GasPanel(ttk.Frame):
             self.t1_str.set(self.tube_interface.get_value("T1_PV"))
             self.t2_str.set(self.tube_interface.get_value("T2_PV"))
             self.t3_str.set(self.tube_interface.get_value("T3_PV"))
+
+            self.purge_timer.set(self.tube_interface.get_value("PURGE_T") + " / 60 min")
         
             self.tube_interface.set_mfc_flow(self.flowSet.get())
 
@@ -399,6 +413,14 @@ class GasPanel(ttk.Frame):
         if self.tube_interface.active_gas != 0:
             for pipe in self.pipes[self.tube_interface.active_gas]:
                 self.canvas.itemconfigure(pipe,width=4,fill='black')
+
+        if self.tube_interface.get_purge_status():
+            self.canvas.itemconfigure(self.o2_lock,state='hidden')
+            self.canvas.itemconfigure(self.fg_lock,state='hidden')
+        else:
+            self.canvas.itemconfigure(self.o2_lock,state='normal')
+            self.canvas.itemconfigure(self.fg_lock,state='normal')
+
 
         for entry in self.controls:
             

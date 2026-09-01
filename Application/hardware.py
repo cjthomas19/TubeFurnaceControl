@@ -11,6 +11,7 @@ class Register:
     name: str
     dtype: str
     graph: bool
+    factor: int = 1
 
 # Class to handle communications with the tube furnace. Includes get and set methods for all variables of interest.
 # Gases:
@@ -25,30 +26,36 @@ class TubeInterface:
 
         self.modbusc = modbusc
 
+        self.ramp_factor = 10
+        self.temp_factor = 1
+
         # Registers in PLC memory for all variables of interest
         # Note separation of PV (Process Value, currently measured)
         # and SV (Setpoint Value, commanded by software) - this allows
         # HMI software to request changes without directly modifying
         # actively used PLC variables.
+
         
         self._registers = {
 
-            "T1_PV" : Register(9, 0, "Zone 1 PV",'int',True),
-            "T2_PV" : Register(19, 0, "Zone 2 PV",'int',True),
-            "T3_PV" : Register(29, 0, "Zone 3 PV",'int',True),
+            "T1_PV" : Register(9, 0, "Zone 1 PV",'int',True,self.temp_factor),
+            "T2_PV" : Register(19, 0, "Zone 2 PV",'int',True,self.temp_factor),
+            "T3_PV" : Register(29, 0, "Zone 3 PV",'int',True,self.temp_factor),
             "FLOW_PV" : Register(28694, 0, "Mass Flow Rate",'float',True),
             "FLOW_SV" : Register(28696, 0, "Mass Flow Set",'float',True),
             "GAS_SELECT" : Register(4, 0, "Gas Selection",'int',False),
             "PRESSURE" : Register(28684, 0, "Pressure",'float',True),
-            "T1_SV" : Register(13, 0, "Zone 1 SV",'int',True),
-            "T2_SV" : Register(23, 0, "Zone 2 SV",'int', True),
-            "T3_SV" : Register(33, 0, "Zone 3 SV",'int', True),
+            "T1_SV" : Register(13, 0, "Zone 1 SV",'int',True,self.temp_factor),
+            "T2_SV" : Register(23, 0, "Zone 2 SV",'int', True,self.temp_factor),
+            "T3_SV" : Register(33, 0, "Zone 3 SV",'int', True,self.temp_factor),
             "T1_STAT" : Register(14, 0, "Zone 1 Status",'int',False),
             "T2_STAT" : Register(24, 0, "Zone 2 Status",'int',False),
             "T3_STAT" : Register(34, 0, "Zone 3 Status",'int',False),
             "PURGE_T" : Register(45061, 0, "Purge Time",'int',False),
             "PURGE_STAT" : Register(45061, False, "Purge Complete", 'bool', False)
         }
+
+        
 
         # Default to no gases active
         self.active_gas = 0
@@ -74,8 +81,11 @@ class TubeInterface:
     def get_register_keys(self):
         return self._registers.keys()
 
-    def get_temperature(self, temp_id):
-        pass
+    def get_temperature_pv(self, temp_id):
+        if temp_id > 0 and temp_id < 4:
+            return self.get_value("T" + str(temp_id) + "_PV")
+        else:
+            return 0
 
     def get_pressure(self, p_id):
         pass
@@ -86,14 +96,18 @@ class TubeInterface:
     def get_mfc_flow(self):
         pass
 
+    def get_purge_status(self):
+        return self._registers["PURGE_STAT"].value
+
     def is_connected(self):
         return self.modbusc.connected
 
     def get_value(self, reg_id):
-        return self._registers[reg_id].value
+        return self._registers[reg_id].value / self._registers[reg_id].factor
 
     def update_value(self, reg_id):
         reg = self._registers[reg_id]
+        
         if reg.dtype == 'float':
             reg.value = self.modbusc.get_float(reg.addr)
         elif reg.dtype == 'int':
@@ -103,12 +117,12 @@ class TubeInterface:
 
     def send_recipe_params(self, sp, rr, dw, sp2, rr2, dw2):
 
-        self.modbusc.set_int(100,dw)
-        self.modbusc.set_int(101,sp)
-        self.modbusc.set_int(102,rr)
-        self.modbusc.set_int(103,dw2)
-        self.modbusc.set_int(104,sp2)
-        self.modbusc.set_int(105,rr2)
+        self.modbusc.set_int(100,int(dw))
+        self.modbusc.set_int(101,int(sp*self.temp_factor))
+        self.modbusc.set_int(102,int(rr*self.ramp_factor))
+        self.modbusc.set_int(103,int(dw2))
+        self.modbusc.set_int(104,int(sp2*self.temp_factor))
+        self.modbusc.set_int(105,int(rr2*self.ramp_factor))
 
         self.modbusc.set_coil(16384,True)
 
@@ -124,3 +138,5 @@ class TubeInterface:
         if self.modbusc.connected:
             for reg in self._registers:
                 self.update_value(reg)
+
+        self.active_gas = self._registers["GAS_SELECT"].value
