@@ -39,7 +39,7 @@ class TubeInterface:
             "T3_PV" : Register(29, 0, "Temperature 3 PV",'int'),
             "FLOW_PV" : Register(28694, 0, "Mass Flow Rate",'float'),
             "FLOW_SV" : Register(28696, 0, "Mass Flow Set",'float'),
-            "GAS_SELECT" : Register(1, 0, "Gas Selection",'float'),
+            "GAS_SELECT" : Register(4, 0, "Gas Selection",'int'),
             "PRESSURE" : Register(28684, 0, "Pressure",'float'),
             "T1_SV" : Register(13, 0, "Temperature 1 SV",'int'),
             "T2_SV" : Register(23, 0, "Temperature 2 SV",'int'),
