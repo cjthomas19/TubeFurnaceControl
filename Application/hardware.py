@@ -19,6 +19,9 @@ class Register:
 #   1: Nitrogen
 #   2: Oxygen
 #   3: Forming Gas
+# Status:
+#   0: Reset
+#   1: Running Recipe
 
 class TubeInterface:
 
@@ -81,11 +84,17 @@ class TubeInterface:
     def get_register_keys(self):
         return self._registers.keys()
 
-    def get_temperature_pv(self, temp_id):
-        if temp_id > 0 and temp_id < 4:
-            return self.get_value("T" + str(temp_id) + "_PV")
+    def get_temperature_pv(self, zone_id):
+        if zone_id > 0 and zone_id < 4:
+            return self.get_value("T" + str(zone_id) + "_PV")
         else:
-            return 0
+            return None
+
+    def get_status(self,zone_id):
+        if zone_id > 0 and zone_id < 4:
+            return self.get_value("T" + str(zone_id) + "_STAT")
+        else:
+            return None
 
     def get_pressure(self, p_id):
         pass

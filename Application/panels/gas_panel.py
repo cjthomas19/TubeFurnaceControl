@@ -165,13 +165,15 @@ class GasPanel(ttk.Frame):
         self.t3_str = StringVar(value="---")
 
         self.purge_timer = StringVar(value="-- / 60 min")
+        
+        self.canvas.create_window(411,629,window=ttk.Label(self.canvas,textvariable=self.t1_str,background='white',font=('Calibri',10)))
+        self.canvas.create_window(499,629,window=ttk.Label(self.canvas,textvariable=self.t2_str,background='white',font=('Calibri',10)))        
+        self.canvas.create_window(587,629,window=ttk.Label(self.canvas,textvariable=self.t3_str,background='white',font=('Calibri',10)))
 
-        self.canvas.create_window(499,629,window=ttk.Label(
-            self.canvas,textvariable=self.t1_str,background='white',font=('Calibri',10)))
-        self.canvas.create_window(411,629,window=ttk.Label(
-            self.canvas,textvariable=self.t2_str,background='white',font=('Calibri',10)))
-        self.canvas.create_window(587,629,window=ttk.Label(
-            self.canvas,textvariable=self.t3_str,background='white',font=('Calibri',10)))
+        self.t1_indicator = self.canvas.create_oval(432,595,452,615,fill='white',outline='black')
+        self.t2_indicator = self.canvas.create_oval(520,595,540,615,fill='white',outline='black')
+        self.t3_indicator = self.canvas.create_oval(608,595,628,615,fill='white',outline='black')
+
 
         ### Gas Control layout
         gpanel = ttk.LabelFrame(self,text="Gas Control",padding=(8,4),width=200,height=350)
@@ -207,14 +209,14 @@ class GasPanel(ttk.Frame):
         o2button.grid(column=1,row=2,sticky=N,columnspan=2)
         self.controls.append((
             o2button,
-            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 2
+            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 2 and self.tube_interface.get_purge_status()
         ))
         
         fgbutton = ttk.Button(gpanel, text="Forming Gas", command=lambda: self.tube_interface.set_gas(3))
         fgbutton.grid(column=1,row=3,sticky=N,columnspan=2)
         self.controls.append((
             fgbutton,
-            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 3
+            lambda: self.tube_interface.is_connected() and self.tube_interface.active_gas != 3 and self.tube_interface.get_purge_status()
         ))
         
         ttk.Label(gpanel, text="MFC Setpoint:").grid(column=1, row=4, sticky=W, pady=(20,0))
@@ -373,12 +375,28 @@ class GasPanel(ttk.Frame):
             self.tube_interface.stop_recipe()
         
     def update(self):
-
+        
         if self.tube_interface.is_connected():
             self.mfc_flow.set('{0:.2f}'.format(self.tube_interface.get_value("FLOW_PV")))
             self.t1_str.set(self.tube_interface.get_value("T1_PV"))
             self.t2_str.set(self.tube_interface.get_value("T2_PV"))
             self.t3_str.set(self.tube_interface.get_value("T3_PV"))
+            
+            if self.tube_interface.get_status(1) == 1:
+                self.canvas.itemconfigure(self.t1_indicator,fill='orange')
+            else:
+                self.canvas.itemconfigure(self.t1_indicator,fill='white')
+
+            if self.tube_interface.get_status(2) == 1:
+                self.canvas.itemconfigure(self.t2_indicator,fill='orange')
+            else:
+                self.canvas.itemconfigure(self.t2_indicator,fill='white')
+
+            if self.tube_interface.get_status(3) == 1:
+                self.canvas.itemconfigure(self.t3_indicator,fill='orange')
+            else:
+                self.canvas.itemconfigure(self.t3_indicator,fill='white')
+
 
             self.purge_timer.set(self.tube_interface.get_value("PURGE_T") + " / 60 min")
         
