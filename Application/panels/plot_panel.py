@@ -124,7 +124,7 @@ class PlotPanel(ttk.Frame):
         self.tube_interface = tube_interface
 
         # Get values to plot from hardware list of registers.
-        self._REGISTERS = dict(zip(self.tube_interface.get_register_names(),self.tube_interface.get_register_keys()))
+        self._REGISTERS = dict(zip(self.tube_interface.get_plot_names(),self.tube_interface.get_plot_keys()))
         
         # Each register gets empty list to store its readings over time.
         self.y_data = {name: [] for name in self._REGISTERS}

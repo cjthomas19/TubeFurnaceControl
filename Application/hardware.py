@@ -44,13 +44,14 @@ class TubeInterface:
             "T1_PV" : Register(9, 0, "Zone 1 PV",'int',True,self.temp_factor),
             "T2_PV" : Register(19, 0, "Zone 2 PV",'int',True,self.temp_factor),
             "T3_PV" : Register(29, 0, "Zone 3 PV",'int',True,self.temp_factor),
+            "T1_SV" : Register(13, 0, "Zone 1 SV",'int',True,self.temp_factor),
+            "T2_SV" : Register(23, 0, "Zone 2 SV",'int', True,self.temp_factor),
+            "T3_SV" : Register(33, 0, "Zone 3 SV",'int', True,self.temp_factor),
             "FLOW_PV" : Register(28694, 0, "Mass Flow Rate",'float',True),
             "FLOW_SV" : Register(28696, 0, "Mass Flow Set",'float',True),
             "GAS_SELECT" : Register(4, 0, "Gas Selection",'int',False),
             "PRESSURE" : Register(28684, 0, "Pressure",'float',True),
-            "T1_SV" : Register(13, 0, "Zone 1 SV",'int',True,self.temp_factor),
-            "T2_SV" : Register(23, 0, "Zone 2 SV",'int', True,self.temp_factor),
-            "T3_SV" : Register(33, 0, "Zone 3 SV",'int', True,self.temp_factor),
+            
             "T1_STAT" : Register(14, 0, "Zone 1 Status",'int',False),
             "T2_STAT" : Register(24, 0, "Zone 2 Status",'int',False),
             "T3_STAT" : Register(34, 0, "Zone 3 Status",'int',False),
@@ -83,6 +84,12 @@ class TubeInterface:
 
     def get_register_keys(self):
         return self._registers.keys()
+
+    def get_plot_names(self):
+        return [reg.name for reg in self._registers.values() if reg.graph]
+
+    def get_plot_keys(self):
+        return [key for key in self._registers.keys() if self._registers[key].graph]
 
     def get_temperature_pv(self, zone_id):
         if zone_id > 0 and zone_id < 4:
