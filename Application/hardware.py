@@ -10,6 +10,7 @@ class Register:
     value: int
     name: str
     dtype: str
+    graph: bool
 
 # Class to handle communications with the tube furnace. Includes get and set methods for all variables of interest.
 # Gases:
@@ -29,22 +30,24 @@ class TubeInterface:
         # and SV (Setpoint Value, commanded by software) - this allows
         # HMI software to request changes without directly modifying
         # actively used PLC variables.
-
-        # Note that register addresses are temporary placeholders.
         
         self._registers = {
 
-            "T1_PV" : Register(9, 0, "Temperature 1 PV",'int'),
-            "T2_PV" : Register(19, 0, "Temperature 2 PV",'int'),
-            "T3_PV" : Register(29, 0, "Temperature 3 PV",'int'),
-            "FLOW_PV" : Register(28694, 0, "Mass Flow Rate",'float'),
-            "FLOW_SV" : Register(28696, 0, "Mass Flow Set",'float'),
-            "GAS_SELECT" : Register(4, 0, "Gas Selection",'int'),
-            "PRESSURE" : Register(28684, 0, "Pressure",'float'),
-            "T1_SV" : Register(13, 0, "Temperature 1 SV",'int'),
-            "T2_SV" : Register(23, 0, "Temperature 2 SV",'int'),
-            "T3_SV" : Register(33, 0, "Temperature 3 SV",'int')
-            
+            "T1_PV" : Register(9, 0, "Zone 1 PV",'int',True),
+            "T2_PV" : Register(19, 0, "Zone 2 PV",'int',True),
+            "T3_PV" : Register(29, 0, "Zone 3 PV",'int',True),
+            "FLOW_PV" : Register(28694, 0, "Mass Flow Rate",'float',True),
+            "FLOW_SV" : Register(28696, 0, "Mass Flow Set",'float',True),
+            "GAS_SELECT" : Register(4, 0, "Gas Selection",'int',False),
+            "PRESSURE" : Register(28684, 0, "Pressure",'float',True),
+            "T1_SV" : Register(13, 0, "Zone 1 SV",'int',True),
+            "T2_SV" : Register(23, 0, "Zone 2 SV",'int', True),
+            "T3_SV" : Register(33, 0, "Zone 3 SV",'int', True),
+            "T1_STAT" : Register(14, 0, "Zone 1 Status",'int',False),
+            "T2_STAT" : Register(24, 0, "Zone 2 Status",'int',False),
+            "T3_STAT" : Register(34, 0, "Zone 3 Status",'int',False),
+            "PURGE_T" : Register(45061, 0, "Purge Time",'int',False),
+            "PURGE_STAT" : Register(45061, False, "Purge Complete", 'bool', False)
         }
 
         # Default to no gases active
@@ -53,20 +56,13 @@ class TubeInterface:
     # PROPERTY SETTER METHODS
     
     def set_temperature(self, temp_id, value):
-
         pass
 
     def set_gas(self, gas_id):
-
-        # TO-DO : Send message to PLC to swap gas
-        #         Wait for PLC to swap back
-        if gas_id >= 0 and gas_id <= 3:
-            self.active_gas = gas_id
         if self.modbusc.connected:
             self.modbusc.set_int(0,gas_id)
 
     def set_mfc_flow(self, flow_rate):
-
         if self.modbusc.connected:
             self.modbusc.set_float(28696, flow_rate)
 
@@ -79,7 +75,6 @@ class TubeInterface:
         return self._registers.keys()
 
     def get_temperature(self, temp_id):
-
         pass
 
     def get_pressure(self, p_id):
@@ -103,6 +98,8 @@ class TubeInterface:
             reg.value = self.modbusc.get_float(reg.addr)
         elif reg.dtype == 'int':
             reg.value = self.modbusc.get_int(reg.addr)
+        elif reg.dtype == 'bool':
+            reg.value = self.modbusc.get_coil(reg.addr)
 
     def send_recipe_params(self, sp, rr, dw, sp2, rr2, dw2):
 

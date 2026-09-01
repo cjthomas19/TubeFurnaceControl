@@ -2,19 +2,19 @@
 - [x] Add indicators and grayed-out controls to show connection status
 - [x] Add stop code to PLC
 - [x] Add horizontal scroll bar for partially minimized window navigation
+- [x] Add logging functionality
+- [x] Remove GUI code from 'main.py' and move into separate file
+- [x] Prevent gases from being changed without purge
+- [ ] Display purge status & timer in user interface
 - [ ] Better organize tracked variables
 - [ ] Make PLC communicate with each controller separately when setting recipe parameters (instead of broadcasting)
 - [ ] Add maximum temperature deviation protection in PLC program
 - [ ] Add implementation of template functions in "hardware.py"
 - [ ] Come up with a better way to do enable/disable updates to controls on main page
 - [ ] Better error handling on PLC side (monitor connection to MFC/tube for interruptions)
-- [ ] Add logging functionality
-- [ ] Remove GUI code from 'main.py' and move into separate file
 - [ ] Add settings including max temp, max rate of change, number format, end mode, etc.
 - [ ] Add display for tube mode (run or stop)
 - [ ] Give second stage temp controls default values
-
-      
 - [ ] On furnace, change integer output to include decimals
 - [ ] PID tuning?
 

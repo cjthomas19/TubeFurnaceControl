@@ -106,14 +106,6 @@ class ModbusConnector:
         if self.connected:
             self.connect()
 
-    # Write an integer value to the given register
-    def set_int(self,register,value):
-
-        if self.connected:
-            self.modbusc.write_register(register,value)
-        else:
-            return 0
-
     # Read a floating point number from the given register
     def get_float(self, register):
 
@@ -130,6 +122,11 @@ class ModbusConnector:
         resp = self.modbusc.read_holding_registers(register)
         val = ModbusSerialClient.convert_from_registers(resp.registers,ModbusSerialClient.DATATYPE.INT16,word_order="little")
         return val
+
+    def get_coil(self,register):
+
+        resp = self.modbusc.read_coils(register,1)
+        return resp
 
     def set_float(self, register, value):
 
